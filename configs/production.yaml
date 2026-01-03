@@ -1,0 +1,292 @@
+# BAHB Production Configuration
+# DJI Manifold 3 + Matrice 400 + H30T
+
+system:
+  name: "BAHB-Inspection"
+  version: "1.0.0"
+  log_level: "INFO"
+  data_dir: "/data/bahb"
+  cache_dir: "/tmp/bahb_cache"
+  max_workers: 8
+
+# Hardware Configuration
+hardware:
+  manifold:
+    platform: "orin_nx"
+    gpu_memory_fraction: 0.9
+    power_mode: "MAXN"  # Maximum performance
+    fan_mode: "cool"
+
+  aircraft:
+    model: "matrice_400"
+    serial: "${AIRCRAFT_SERIAL}"
+    max_altitude: 120  # meters AGL
+    max_speed: 15  # m/s during inspection
+    rtk_enabled: true
+
+# Camera Configuration (DJI H30T)
+camera:
+  h30t:
+    # Wide Camera
+    wide:
+      enabled: true
+      resolution: [4096, 2160]  # 4K
+      fps: 30
+      codec: "h265"
+
+    # Zoom Camera
+    zoom:
+      enabled: true
+      resolution: [3840, 2160]
+      fps: 30
+      optical_zoom_range: [5, 200]  # 5x-200x
+
+    # Thermal Camera
+    thermal:
+      enabled: true
+      resolution: [640, 512]
+      fps: 30
+      fov: 40.6  # degrees
+      sensitivity: 0.03  # NETD in °C
+      temperature_range: [-40, 550]  # °C
+      palette: "ironbow"
+      emissivity: 0.95
+
+    # Laser Rangefinder
+    rangefinder:
+      enabled: true
+      max_range: 1200  # meters
+      accuracy: 0.2  # meters
+
+    # RTSP Streams
+    streams:
+      wide: "rtsp://192.168.42.2:8554/wide"
+      zoom: "rtsp://192.168.42.2:8554/zoom"
+      thermal: "rtsp://192.168.42.2:8554/thermal"
+
+# AI Models Configuration
+models:
+  # YOLOv12 - Fast Detection
+  yolov12:
+    enabled: true
+    weights: "models/yolov12l-inspection.engine"  # TensorRT optimized
+    input_size: [1280, 720]
+    confidence_threshold: 0.35
+    nms_threshold: 0.45
+    device: "cuda:0"
+    half_precision: true
+    batch_size: 1
+    classes:
+      - transformer
+      - insulator
+      - conductor
+      - switchgear
+      - cable
+      - hvac_unit
+      - server_rack
+      - cooling_fan
+      - electrical_panel
+      - fire_extinguisher
+      - vegetation
+      - person
+      - vehicle
+      - damage
+      - corrosion
+      - hotspot
+      - leak
+
+  # RF-DETR - Transformer-based Segmentation
+  rf_detr:
+    enabled: true
+    weights: "models/rf_detr_large.engine"
+    backbone: "resnet101"
+    input_size: [640, 640]
+    num_queries: 300
+    device: "cuda:0"
+    half_precision: true
+    threshold: 0.5
+
+  # SAM3 Nano - Precision Segmentation
+  sam3_nano:
+    enabled: true
+    encoder_weights: "models/sam3_nano_encoder.engine"
+    decoder_weights: "models/sam3_nano_decoder.engine"
+    input_size: [1024, 1024]
+    device: "cuda:0"
+    points_per_batch: 64
+
+  # Qwen2.5-VL-3B-AWQ - Visual Language Model
+  qwen_vl:
+    enabled: true
+    model_path: "models/Qwen2.5-VL-3B-AWQ"
+    device: "cuda:0"
+    max_new_tokens: 512
+    temperature: 0.1
+    quantization: "awq"
+    flash_attention: true
+    context_length: 4096
+
+# Thermal Analysis
+thermal:
+  analysis:
+    enabled: true
+    baseline_temp: 25.0  # Ambient reference
+    hotspot_threshold: 15.0  # °C above ambient
+    critical_threshold: 40.0  # °C above ambient
+    cold_spot_threshold: -10.0  # °C below ambient
+
+  zones:
+    transformer:
+      normal_range: [20, 65]
+      warning_range: [65, 85]
+      critical_range: [85, 150]
+    conductor:
+      normal_range: [15, 50]
+      warning_range: [50, 75]
+      critical_range: [75, 120]
+    switchgear:
+      normal_range: [20, 55]
+      warning_range: [55, 75]
+      critical_range: [75, 110]
+    server:
+      normal_range: [25, 45]
+      warning_range: [45, 60]
+      critical_range: [60, 85]
+
+  calibration:
+    atmospheric_transmission: 0.95
+    reflected_temperature: 25.0
+    distance_compensation: true
+
+# Inspection Profiles
+inspection:
+  profiles:
+    substation:
+      enabled: true
+      detection_classes:
+        - transformer
+        - insulator
+        - conductor
+        - switchgear
+        - vegetation
+      thermal_enabled: true
+      min_hover_time: 3.0  # seconds per POI
+
+    datacenter:
+      enabled: true
+      detection_classes:
+        - server_rack
+        - hvac_unit
+        - cooling_fan
+        - electrical_panel
+        - cable
+      thermal_enabled: true
+      min_hover_time: 2.0
+
+  anomaly_detection:
+    enabled: true
+    severity_levels:
+      info: 0
+      low: 1
+      medium: 2
+      high: 3
+      critical: 4
+
+    auto_alert_threshold: 3  # high and above
+
+# 3D Mapping
+mapping:
+  enabled: true
+  photogrammetry:
+    overlap: 80  # percent
+    sidelap: 70  # percent
+    gsd: 0.5  # cm/pixel target
+
+  point_cloud:
+    enabled: true
+    density: "high"
+    colorize: true
+
+  mesh:
+    enabled: true
+    texture_resolution: 4096
+
+# Streaming & Output
+streaming:
+  webrtc:
+    enabled: true
+    port: 8080
+    stun_servers:
+      - "stun:stun.l.google.com:19302"
+
+  rtmp:
+    enabled: false
+    url: "${RTMP_URL}"
+
+  recording:
+    enabled: true
+    format: "mp4"
+    codec: "h265"
+    bitrate: 20000000  # 20 Mbps
+
+# Reporting
+reporting:
+  auto_generate: true
+  format: ["pdf", "json"]
+  include_images: true
+  include_thermal: true
+  include_3d_model: false  # Resource intensive
+
+  templates:
+    substation: "templates/substation_report.html"
+    datacenter: "templates/datacenter_report.html"
+
+# Alerts & Notifications
+alerts:
+  enabled: true
+  channels:
+    mqtt:
+      enabled: true
+      broker: "${MQTT_BROKER}"
+      topic: "bahb/alerts"
+
+    webhook:
+      enabled: true
+      url: "${WEBHOOK_URL}"
+
+    local:
+      enabled: true
+      sound: true
+      visual: true
+
+# Safety & Failsafe
+safety:
+  obstacle_avoidance: true
+  geofence:
+    enabled: true
+    max_distance: 500  # meters from home
+
+  battery:
+    warning_level: 30
+    critical_level: 20
+    auto_rtl_level: 15
+
+  weather:
+    max_wind_speed: 12  # m/s
+    min_visibility: 1000  # meters
+
+# Edge Optimization
+optimization:
+  tensorrt:
+    enabled: true
+    workspace_size: 4294967296  # 4GB
+    precision: "fp16"
+
+  cuda:
+    streams: 4
+    memory_pool: true
+
+  inference:
+    async_enabled: true
+    prefetch_frames: 2
+    skip_frames: 0  # Process every frame

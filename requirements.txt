@@ -1,0 +1,104 @@
+# BAHB - Drone Inspection System Dependencies
+# Optimized for DJI Manifold 3 (NVIDIA Orin NX)
+
+# Core ML Frameworks
+torch>=2.2.0
+torchvision>=0.17.0
+onnxruntime-gpu>=1.17.0
+tensorrt>=8.6.0
+
+# Computer Vision
+opencv-python>=4.9.0
+opencv-contrib-python>=4.9.0
+Pillow>=10.2.0
+scikit-image>=0.22.0
+
+# AI Models
+ultralytics>=8.1.0  # YOLOv12 support
+transformers>=4.38.0  # Qwen2.5-VL
+accelerate>=0.27.0
+safetensors>=0.4.0
+bitsandbytes>=0.42.0  # Quantization support
+auto-gptq>=0.7.0  # AWQ quantization
+autoawq>=0.2.0
+
+# Segmentation
+segment-anything-2>=1.0.0  # SAM3 variants
+timm>=0.9.0  # Vision backbones
+
+# DJI SDK Integration
+dji-sdk>=1.0.0  # DJI PSDK wrapper
+djiosdk>=0.3.0
+pymavlink>=2.4.0  # MAVLink protocol
+
+# Streaming & Video
+av>=11.0.0  # FFmpeg bindings
+aiortc>=1.6.0  # WebRTC
+gstreamer-python>=1.20.0
+
+# Thermal Analysis
+flir-thermal>=1.0.0
+thermography>=0.1.0
+
+# 3D Mapping & SLAM
+open3d>=0.18.0
+pyrealsense2>=2.54.0
+pyntcloud>=0.3.0
+
+# Geospatial
+pyproj>=3.6.0
+shapely>=2.0.0
+geopandas>=0.14.0
+folium>=0.15.0
+
+# Data Processing
+numpy>=1.26.0
+pandas>=2.2.0
+scipy>=1.12.0
+polars>=0.20.0
+
+# Configuration & Serialization
+pyyaml>=6.0.0
+pydantic>=2.6.0
+pydantic-settings>=2.2.0
+msgpack>=1.0.0
+orjson>=3.9.0
+
+# Async & Networking
+aiohttp>=3.9.0
+websockets>=12.0
+httpx>=0.27.0
+grpcio>=1.60.0
+pyzmq>=25.0.0
+
+# Logging & Monitoring
+loguru>=0.7.0
+prometheus-client>=0.20.0
+rich>=13.7.0
+
+# Database
+sqlalchemy>=2.0.0
+aiosqlite>=0.19.0
+redis>=5.0.0
+
+# Report Generation
+jinja2>=3.1.0
+reportlab>=4.1.0
+weasyprint>=60.0
+matplotlib>=3.8.0
+
+# Utilities
+click>=8.1.0
+tqdm>=4.66.0
+python-dotenv>=1.0.0
+watchdog>=4.0.0
+
+# Testing
+pytest>=8.0.0
+pytest-asyncio>=0.23.0
+pytest-cov>=4.1.0
+
+# Development
+black>=24.0.0
+ruff>=0.2.0
+mypy>=1.8.0
