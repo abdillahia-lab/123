@@ -1,0 +1,218 @@
+# =============================================================================
+# Paces - Renewable Energy Management Platform Configuration
+# =============================================================================
+
+# System Settings
+name: "Paces"
+version: "1.0.0"
+environment: "production"
+log_level: "INFO"
+data_dir: "/data/paces"
+cache_dir: "/tmp/paces_cache"
+
+# Hardware
+gpu_enabled: true
+gpu_memory_fraction: 0.9
+max_workers: 16
+
+# =============================================================================
+# AI Models Configuration
+# =============================================================================
+models:
+  # YOLOv12 - Ultra-fast object detection
+  yolov12:
+    enabled: true
+    weights_solar: "models/yolov12-solar-defects.engine"
+    weights_wind: "models/yolov12-wind-defects.engine"
+    input_size: [1280, 720]
+    confidence_threshold: 0.35
+    nms_threshold: 0.45
+    device: "cuda:0"
+    half_precision: true
+
+  # SAM3 Nano - Precision segmentation
+  sam3:
+    enabled: true
+    encoder_weights: "models/sam3_nano_encoder.engine"
+    decoder_weights: "models/sam3_nano_decoder.engine"
+    device: "cuda:0"
+
+  # Qwen2.5-VL - Visual language analysis
+  qwen_vl:
+    enabled: true
+    model_path: "models/Qwen2.5-VL-3B-AWQ"
+    device: "cuda:0"
+    max_new_tokens: 512
+    temperature: 0.1
+
+  # Temporal Fusion Transformer - Energy forecasting
+  forecasting:
+    enabled: true
+    model_type: "temporal_fusion_transformer"
+    model_path: "models/tft_energy_forecast.pt"
+    horizon_hours: 48
+    lookback_hours: 168
+    device: "cuda:0"
+
+  # Weather prediction
+  weather:
+    enabled: true
+    model_type: "ensemble"
+    api_providers:
+      - "openweathermap"
+      - "visualcrossing"
+    update_interval_minutes: 15
+    forecast_days: 7
+
+# =============================================================================
+# Solar Analytics
+# =============================================================================
+solar:
+  enabled: true
+  thermal_enabled: true
+  hotspot_threshold_delta_c: 10.0
+  critical_hotspot_delta_c: 25.0
+  soiling_detection: true
+  shading_analysis: true
+  performance_ratio_target: 0.80
+  degradation_rate_annual: 0.5
+
+# =============================================================================
+# Wind Analytics
+# =============================================================================
+wind:
+  enabled: true
+  blade_inspection_enabled: true
+  vibration_analysis_enabled: true
+  yaw_misalignment_threshold_deg: 5.0
+  wake_loss_modeling: true
+  icing_detection: true
+  availability_target: 0.97
+
+# =============================================================================
+# Battery Storage
+# =============================================================================
+battery:
+  enabled: true
+  soh_tracking: true
+  thermal_management: true
+  cell_balancing_monitoring: true
+  min_soc: 10.0
+  max_soc: 90.0
+  temperature_warning_c: 35.0
+  temperature_critical_c: 45.0
+
+# =============================================================================
+# Forecasting
+# =============================================================================
+forecasting:
+  enabled: true
+  models:
+    - "temporal_fusion_transformer"
+    - "prophet"
+    - "ensemble"
+  solar_forecast_enabled: true
+  wind_forecast_enabled: true
+  load_forecast_enabled: true
+  price_forecast_enabled: true
+  update_interval_minutes: 15
+  ensemble_weights:
+    tft: 0.5
+    prophet: 0.3
+    arima: 0.2
+
+# =============================================================================
+# Grid Integration
+# =============================================================================
+grid:
+  enabled: true
+  frequency_regulation: true
+  voltage_support: true
+  ramp_rate_limit_mw_min: 10.0
+  curtailment_response_enabled: true
+  market_participation: true
+
+# =============================================================================
+# Predictive Maintenance
+# =============================================================================
+maintenance:
+  enabled: true
+  prediction_horizon_days: 30
+  alert_lead_time_days: 7
+  failure_probability_threshold: 0.7
+  cost_optimization: true
+
+# =============================================================================
+# Carbon Tracking
+# =============================================================================
+carbon:
+  enabled: true
+  grid_emission_factor_tco2_mwh: 0.4
+  carbon_price_per_tonne: 50.0
+  renewable_energy_certificates: true
+  lifecycle_analysis: true
+
+# =============================================================================
+# Financial
+# =============================================================================
+financial:
+  enabled: true
+  currency: "USD"
+  electricity_price_mwh: 50.0
+  discount_rate: 0.08
+  inflation_rate: 0.02
+  tax_rate: 0.25
+
+# =============================================================================
+# Alerts
+# =============================================================================
+alerts:
+  enabled: true
+  email_enabled: true
+  sms_enabled: false
+  webhook_enabled: true
+  webhook_url: "${PACES_WEBHOOK_URL:}"
+  escalation_enabled: true
+  quiet_hours_enabled: false
+
+# =============================================================================
+# API
+# =============================================================================
+api:
+  enabled: true
+  host: "0.0.0.0"
+  port: 8080
+  cors_origins:
+    - "*"
+  rate_limit: 1000
+  api_key_enabled: true
+  jwt_enabled: true
+  jwt_secret: "${PACES_JWT_SECRET:}"
+
+# =============================================================================
+# Database
+# =============================================================================
+database:
+  type: "postgresql"
+  host: "${PACES_DB_HOST:localhost}"
+  port: 5432
+  database: "paces"
+  username: "${PACES_DB_USER:paces}"
+  password: "${PACES_DB_PASSWORD:}"
+  pool_size: 20
+  timescale_enabled: true
+
+# =============================================================================
+# Cache
+# =============================================================================
+cache:
+  type: "redis"
+  host: "${PACES_REDIS_HOST:localhost}"
+  port: 6379
+  ttl_seconds: 300
+
+# =============================================================================
+# BAHB Integration
+# =============================================================================
+bahb_integration_enabled: true
+bahb_config_path: "configs/production.yaml"
