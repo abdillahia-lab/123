@@ -1,159 +1,151 @@
 """
-Core type definitions for Paces renewable energy platform.
+Core type definitions for Paces renewable energy site development platform.
 
-Comprehensive data models for solar, wind, battery, and grid assets
-with support for AI-driven analytics and predictive maintenance.
+Comprehensive data models for parcels, projects, permits, grid connections,
+environmental constraints, and site scoring.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, date
 from enum import Enum, auto
 from typing import Optional, Any
 from uuid import uuid4
-import numpy as np
-from numpy.typing import NDArray
+import json
 
 
 # =============================================================================
-# Enums
+# Enumerations
 # =============================================================================
 
-class AssetType(Enum):
-    """Types of renewable energy assets."""
-    SOLAR_PANEL = "solar_panel"
-    SOLAR_ARRAY = "solar_array"
-    SOLAR_FARM = "solar_farm"
-    WIND_TURBINE = "wind_turbine"
-    WIND_FARM = "wind_farm"
-    BATTERY_CELL = "battery_cell"
-    BATTERY_MODULE = "battery_module"
-    BATTERY_SYSTEM = "battery_system"
-    INVERTER = "inverter"
-    TRANSFORMER = "transformer"
-    SUBSTATION = "substation"
-    TRANSMISSION_LINE = "transmission_line"
-    GRID_CONNECTION = "grid_connection"
-
-
-class EnergySource(Enum):
-    """Energy source types."""
-    SOLAR_PV = "solar_pv"
-    SOLAR_THERMAL = "solar_thermal"
+class ProjectType(Enum):
+    """Types of renewable energy projects."""
+    UTILITY_SOLAR = "utility_solar"
+    COMMERCIAL_SOLAR = "commercial_solar"
+    COMMUNITY_SOLAR = "community_solar"
+    ROOFTOP_SOLAR = "rooftop_solar"
+    AGRIVOLTAICS = "agrivoltaics"
+    FLOATING_SOLAR = "floating_solar"
     WIND_ONSHORE = "wind_onshore"
     WIND_OFFSHORE = "wind_offshore"
-    HYDRO = "hydro"
-    GEOTHERMAL = "geothermal"
-    BIOMASS = "biomass"
     BATTERY_STORAGE = "battery_storage"
-    GRID = "grid"
+    HYBRID_SOLAR_STORAGE = "hybrid_solar_storage"
+    EV_CHARGING = "ev_charging"
+    HYDROGEN = "hydrogen"
+    DATA_CENTER = "data_center"
 
 
-class MaintenanceStatus(Enum):
-    """Asset maintenance status."""
+class ProjectStatus(Enum):
+    """Project development stages."""
+    PROSPECTING = "prospecting"
+    SITE_CONTROL = "site_control"
+    PERMITTING = "permitting"
+    INTERCONNECTION = "interconnection"
+    FINANCING = "financing"
+    CONSTRUCTION = "construction"
     OPERATIONAL = "operational"
-    DEGRADED = "degraded"
-    MAINTENANCE_REQUIRED = "maintenance_required"
-    MAINTENANCE_SCHEDULED = "maintenance_scheduled"
-    UNDER_MAINTENANCE = "under_maintenance"
-    OFFLINE = "offline"
-    CRITICAL = "critical"
     DECOMMISSIONED = "decommissioned"
+    CANCELLED = "cancelled"
 
 
-class AlertSeverity(Enum):
-    """Alert severity levels."""
-    INFO = 0
+class PermitStatus(Enum):
+    """Permitting status."""
+    NOT_STARTED = "not_started"
+    IN_REVIEW = "in_review"
+    APPROVED = "approved"
+    CONDITIONALLY_APPROVED = "conditionally_approved"
+    DENIED = "denied"
+    APPEALED = "appealed"
+    EXPIRED = "expired"
+
+
+class ZoningType(Enum):
+    """Zoning classifications."""
+    AGRICULTURAL = "agricultural"
+    RESIDENTIAL = "residential"
+    COMMERCIAL = "commercial"
+    INDUSTRIAL = "industrial"
+    MIXED_USE = "mixed_use"
+    CONSERVATION = "conservation"
+    UTILITY = "utility"
+    UNKNOWN = "unknown"
+
+
+class LandUsePermission(Enum):
+    """Solar/renewable energy permission status."""
+    BY_RIGHT = "by_right"  # Allowed without special permit
+    CONDITIONAL_USE = "conditional_use"  # Requires CUP
+    SPECIAL_EXCEPTION = "special_exception"
+    VARIANCE_REQUIRED = "variance_required"
+    PROHIBITED = "prohibited"
+    MORATORIUM = "moratorium"
+    UNKNOWN = "unknown"
+
+
+class InterconnectionStatus(Enum):
+    """Grid interconnection queue status."""
+    NOT_APPLIED = "not_applied"
+    APPLICATION_SUBMITTED = "application_submitted"
+    FEASIBILITY_STUDY = "feasibility_study"
+    SYSTEM_IMPACT_STUDY = "system_impact_study"
+    FACILITIES_STUDY = "facilities_study"
+    INTERCONNECTION_AGREEMENT = "interconnection_agreement"
+    CONSTRUCTION = "construction"
+    OPERATIONAL = "operational"
+    WITHDRAWN = "withdrawn"
+
+
+class EnvironmentalRisk(Enum):
+    """Environmental constraint risk levels."""
+    NONE = 0
     LOW = 1
     MEDIUM = 2
     HIGH = 3
-    CRITICAL = 4
-    EMERGENCY = 5
+    FATAL = 4
 
 
-class WeatherCondition(Enum):
-    """Weather condition types."""
-    CLEAR = "clear"
-    PARTLY_CLOUDY = "partly_cloudy"
-    CLOUDY = "cloudy"
-    OVERCAST = "overcast"
-    FOG = "fog"
-    LIGHT_RAIN = "light_rain"
-    RAIN = "rain"
-    HEAVY_RAIN = "heavy_rain"
-    THUNDERSTORM = "thunderstorm"
-    SNOW = "snow"
-    HAIL = "hail"
-    DUST = "dust"
-
-
-class DefectType(Enum):
-    """Defect types for renewable assets."""
-    # Solar defects
-    CELL_CRACK = "cell_crack"
-    HOT_SPOT = "hot_spot"
-    SNAIL_TRAIL = "snail_trail"
-    DELAMINATION = "delamination"
-    DISCOLORATION = "discoloration"
-    SOILING = "soiling"
-    SHADING = "shading"
-    PID = "potential_induced_degradation"
-    BYPASS_DIODE_FAILURE = "bypass_diode_failure"
-    JUNCTION_BOX_FAILURE = "junction_box_failure"
-
-    # Wind defects
-    BLADE_CRACK = "blade_crack"
-    BLADE_EROSION = "blade_erosion"
-    LIGHTNING_STRIKE = "lightning_strike"
-    ICE_BUILDUP = "ice_buildup"
-    GEARBOX_WEAR = "gearbox_wear"
-    BEARING_FAILURE = "bearing_failure"
-    YAW_MISALIGNMENT = "yaw_misalignment"
-    PITCH_MALFUNCTION = "pitch_malfunction"
-
-    # Battery defects
-    THERMAL_RUNAWAY = "thermal_runaway"
-    CAPACITY_FADE = "capacity_fade"
-    INTERNAL_SHORT = "internal_short"
-    ELECTROLYTE_LEAK = "electrolyte_leak"
-    SWELLING = "swelling"
-
-    # General
-    CORROSION = "corrosion"
-    CONNECTOR_DAMAGE = "connector_damage"
-    CABLE_DAMAGE = "cable_damage"
-    STRUCTURAL_DAMAGE = "structural_damage"
-
-
-class ForecastModel(Enum):
-    """Forecasting model types."""
-    TEMPORAL_FUSION = "temporal_fusion_transformer"
-    TIMEGPT = "timegpt"
-    CHRONOS = "chronos"
-    PROPHET = "prophet"
-    LSTM = "lstm"
-    ENSEMBLE = "ensemble"
+class Utility(Enum):
+    """Major utility companies."""
+    DUKE_ENERGY = "duke_energy"
+    DOMINION = "dominion"
+    NEXTERA = "nextera"
+    SOUTHERN_COMPANY = "southern_company"
+    AEP = "aep"
+    XCEL = "xcel"
+    PGE = "pge"
+    SCE = "sce"
+    ERCOT = "ercot"
+    PJM = "pjm"
+    MISO = "miso"
+    CAISO = "caiso"
+    SPP = "spp"
+    NYISO = "nyiso"
+    ISO_NE = "iso_ne"
+    OTHER = "other"
 
 
 # =============================================================================
-# Base Data Classes
+# Geographic Types
 # =============================================================================
 
 @dataclass
-class GeoLocation:
-    """Geographic location with full metadata."""
+class GeoPoint:
+    """Geographic point coordinate."""
     latitude: float
     longitude: float
-    altitude: float = 0.0
-    accuracy: float = 0.0
-    timezone: str = "UTC"
 
-    def distance_to(self, other: GeoLocation) -> float:
-        """Calculate distance in km using Haversine formula."""
+    def to_tuple(self) -> tuple[float, float]:
+        return (self.latitude, self.longitude)
+
+    def to_dict(self) -> dict:
+        return {"lat": self.latitude, "lng": self.longitude}
+
+    def distance_to(self, other: GeoPoint) -> float:
+        """Calculate distance in kilometers using Haversine formula."""
         from math import radians, sin, cos, sqrt, atan2
 
-        R = 6371  # Earth radius in km
+        R = 6371  # Earth's radius in km
         lat1, lon1 = radians(self.latitude), radians(self.longitude)
         lat2, lon2 = radians(other.latitude), radians(other.longitude)
 
@@ -165,967 +157,737 @@ class GeoLocation:
 
         return R * c
 
-    def to_dict(self) -> dict:
-        return {
-            "lat": self.latitude,
-            "lon": self.longitude,
-            "alt": self.altitude,
-            "accuracy": self.accuracy,
-            "timezone": self.timezone,
-        }
-
-
-@dataclass
-class TimeSeriesPoint:
-    """Single point in a time series."""
-    timestamp: datetime
-    value: float
-    unit: str = ""
-    quality: float = 1.0  # Data quality score 0-1
-
-    def to_dict(self) -> dict:
-        return {
-            "timestamp": self.timestamp.isoformat(),
-            "value": self.value,
-            "unit": self.unit,
-            "quality": self.quality,
-        }
-
-
-@dataclass
-class TimeSeries:
-    """Time series data container."""
-    name: str
-    points: list[TimeSeriesPoint] = field(default_factory=list)
-    unit: str = ""
-    resolution_seconds: int = 3600
-
-    @property
-    def values(self) -> NDArray[np.float64]:
-        return np.array([p.value for p in self.points])
-
-    @property
-    def timestamps(self) -> list[datetime]:
-        return [p.timestamp for p in self.points]
-
-    def resample(self, resolution_seconds: int) -> TimeSeries:
-        """Resample time series to new resolution."""
-        # Implementation would use pandas-like resampling
-        return self
-
-    def to_dict(self) -> dict:
-        return {
-            "name": self.name,
-            "unit": self.unit,
-            "resolution_seconds": self.resolution_seconds,
-            "points": [p.to_dict() for p in self.points],
-        }
-
-
-# =============================================================================
-# Weather Data
-# =============================================================================
-
-@dataclass
-class WeatherData:
-    """Comprehensive weather data for a location."""
-    timestamp: datetime
-    location: GeoLocation
-
-    # Temperature
-    temperature_c: float = 20.0
-    feels_like_c: float = 20.0
-    dew_point_c: float = 10.0
-
-    # Solar radiation
-    ghi: float = 0.0  # Global Horizontal Irradiance (W/m2)
-    dni: float = 0.0  # Direct Normal Irradiance (W/m2)
-    dhi: float = 0.0  # Diffuse Horizontal Irradiance (W/m2)
-
-    # Wind
-    wind_speed_ms: float = 0.0
-    wind_gust_ms: float = 0.0
-    wind_direction_deg: float = 0.0
-
-    # Atmosphere
-    humidity_pct: float = 50.0
-    pressure_hpa: float = 1013.25
-    cloud_cover_pct: float = 0.0
-    visibility_km: float = 10.0
-
-    # Precipitation
-    precipitation_mm: float = 0.0
-    precipitation_probability: float = 0.0
-    snow_depth_cm: float = 0.0
-
-    # Conditions
-    condition: WeatherCondition = WeatherCondition.CLEAR
-    uv_index: float = 0.0
-    air_quality_index: int = 50
-
-    @property
-    def is_optimal_solar(self) -> bool:
-        """Check if conditions are optimal for solar production."""
-        return (
-            self.ghi > 600 and
-            self.cloud_cover_pct < 20 and
-            self.temperature_c < 35 and
-            self.condition in [WeatherCondition.CLEAR, WeatherCondition.PARTLY_CLOUDY]
-        )
-
-    @property
-    def is_optimal_wind(self) -> bool:
-        """Check if conditions are optimal for wind production."""
-        return (
-            5 <= self.wind_speed_ms <= 25 and
-            self.precipitation_mm < 1 and
-            self.visibility_km > 5
-        )
-
-    def to_dict(self) -> dict:
-        return {
-            "timestamp": self.timestamp.isoformat(),
-            "location": self.location.to_dict(),
-            "temperature_c": self.temperature_c,
-            "ghi": self.ghi,
-            "dni": self.dni,
-            "dhi": self.dhi,
-            "wind_speed_ms": self.wind_speed_ms,
-            "wind_direction_deg": self.wind_direction_deg,
-            "humidity_pct": self.humidity_pct,
-            "cloud_cover_pct": self.cloud_cover_pct,
-            "condition": self.condition.value,
-        }
-
-
-@dataclass
-class WeatherForecast:
-    """Weather forecast for a location."""
-    location: GeoLocation
-    generated_at: datetime
-    model: str = "ensemble"
-    hourly: list[WeatherData] = field(default_factory=list)
-    daily_summary: list[dict] = field(default_factory=list)
-    confidence: float = 0.9
-
-
-# =============================================================================
-# Energy Readings
-# =============================================================================
-
-@dataclass
-class EnergyReading:
-    """Energy production/consumption reading."""
-    timestamp: datetime
-    asset_id: str
-
-    # Power
-    power_kw: float = 0.0
-    power_factor: float = 1.0
-
-    # Energy
-    energy_kwh: float = 0.0
-    energy_cumulative_kwh: float = 0.0
-
-    # Electrical
-    voltage_v: float = 0.0
-    current_a: float = 0.0
-    frequency_hz: float = 50.0
-
-    # Efficiency
-    efficiency_pct: float = 0.0
-    capacity_factor: float = 0.0
-
-    # Environmental
-    ambient_temp_c: float = 25.0
-    module_temp_c: Optional[float] = None
-    irradiance_wm2: Optional[float] = None
-    wind_speed_ms: Optional[float] = None
-
-    def to_dict(self) -> dict:
-        return {
-            "timestamp": self.timestamp.isoformat(),
-            "asset_id": self.asset_id,
-            "power_kw": self.power_kw,
-            "energy_kwh": self.energy_kwh,
-            "efficiency_pct": self.efficiency_pct,
-            "capacity_factor": self.capacity_factor,
-        }
-
-
-@dataclass
-class PowerForecast:
-    """Power production forecast."""
-    asset_id: str
-    generated_at: datetime
-    model: ForecastModel
-    horizon_hours: int
-
-    # Forecasted values
-    timestamps: list[datetime] = field(default_factory=list)
-    power_kw: list[float] = field(default_factory=list)
-    energy_kwh: list[float] = field(default_factory=list)
-
-    # Uncertainty bounds
-    lower_bound_kw: list[float] = field(default_factory=list)
-    upper_bound_kw: list[float] = field(default_factory=list)
-    confidence_intervals: list[float] = field(default_factory=list)
-
-    # Accuracy metrics
-    mae: float = 0.0
-    rmse: float = 0.0
-    mape: float = 0.0
-
-    @property
-    def total_energy_kwh(self) -> float:
-        return sum(self.energy_kwh)
-
-    def to_dict(self) -> dict:
-        return {
-            "asset_id": self.asset_id,
-            "generated_at": self.generated_at.isoformat(),
-            "model": self.model.value,
-            "horizon_hours": self.horizon_hours,
-            "total_energy_kwh": self.total_energy_kwh,
-            "mae": self.mae,
-            "rmse": self.rmse,
-        }
-
-
-# =============================================================================
-# Defects and Anomalies
-# =============================================================================
 
 @dataclass
 class BoundingBox:
-    """Bounding box for detected objects."""
-    x1: float
-    y1: float
-    x2: float
-    y2: float
+    """Geographic bounding box."""
+    min_lat: float
+    min_lng: float
+    max_lat: float
+    max_lng: float
 
     @property
-    def width(self) -> float:
-        return self.x2 - self.x1
+    def center(self) -> GeoPoint:
+        return GeoPoint(
+            latitude=(self.min_lat + self.max_lat) / 2,
+            longitude=(self.min_lng + self.max_lng) / 2,
+        )
 
-    @property
-    def height(self) -> float:
-        return self.y2 - self.y1
-
-    @property
-    def center(self) -> tuple[float, float]:
-        return ((self.x1 + self.x2) / 2, (self.y1 + self.y2) / 2)
-
-    @property
-    def area(self) -> float:
-        return self.width * self.height
+    def contains(self, point: GeoPoint) -> bool:
+        return (
+            self.min_lat <= point.latitude <= self.max_lat and
+            self.min_lng <= point.longitude <= self.max_lng
+        )
 
 
 @dataclass
-class Defect:
-    """Detected defect on a renewable asset."""
-    id: str = field(default_factory=lambda: str(uuid4())[:8])
-    asset_id: str = ""
-    defect_type: DefectType = DefectType.HOT_SPOT
-    severity: AlertSeverity = AlertSeverity.MEDIUM
+class GeoPolygon:
+    """Geographic polygon defined by vertices."""
+    vertices: list[GeoPoint] = field(default_factory=list)
 
-    # Detection
-    confidence: float = 0.0
-    bbox: Optional[BoundingBox] = None
-    mask: Optional[NDArray[np.uint8]] = None
+    @property
+    def centroid(self) -> GeoPoint:
+        if not self.vertices:
+            return GeoPoint(0, 0)
+        avg_lat = sum(v.latitude for v in self.vertices) / len(self.vertices)
+        avg_lng = sum(v.longitude for v in self.vertices) / len(self.vertices)
+        return GeoPoint(avg_lat, avg_lng)
 
-    # Location
-    location: Optional[GeoLocation] = None
-    position_on_asset: Optional[tuple[float, float]] = None
+    @property
+    def bounding_box(self) -> BoundingBox:
+        if not self.vertices:
+            return BoundingBox(0, 0, 0, 0)
+        lats = [v.latitude for v in self.vertices]
+        lngs = [v.longitude for v in self.vertices]
+        return BoundingBox(min(lats), min(lngs), max(lats), max(lngs))
 
-    # Thermal
-    temperature_c: Optional[float] = None
-    delta_t: Optional[float] = None
-
-    # Analysis
-    description: str = ""
-    ai_analysis: str = ""
-    recommendations: list[str] = field(default_factory=list)
-    estimated_impact_pct: float = 0.0
-
-    # Metadata
-    detected_at: datetime = field(default_factory=datetime.now)
-    image_path: Optional[str] = None
-    thermal_image_path: Optional[str] = None
-
-    def to_dict(self) -> dict:
+    def to_geojson(self) -> dict:
         return {
-            "id": self.id,
-            "asset_id": self.asset_id,
-            "defect_type": self.defect_type.value,
-            "severity": self.severity.name,
-            "confidence": self.confidence,
-            "description": self.description,
-            "recommendations": self.recommendations,
-            "estimated_impact_pct": self.estimated_impact_pct,
-            "detected_at": self.detected_at.isoformat(),
+            "type": "Polygon",
+            "coordinates": [[[v.longitude, v.latitude] for v in self.vertices]],
         }
 
 
 # =============================================================================
-# Renewable Assets
+# Parcel / Land Types
 # =============================================================================
 
 @dataclass
-class RenewableAsset:
-    """Base class for all renewable energy assets."""
+class Parcel:
+    """Land parcel for potential development."""
     id: str = field(default_factory=lambda: str(uuid4()))
-    name: str = ""
-    asset_type: AssetType = AssetType.SOLAR_PANEL
-    location: Optional[GeoLocation] = None
+    apn: str = ""  # Assessor's Parcel Number
 
-    # Capacity
-    rated_capacity_kw: float = 0.0
-    actual_capacity_kw: float = 0.0
+    # Location
+    state: str = ""
+    county: str = ""
+    municipality: str = ""
+    address: str = ""
+    centroid: Optional[GeoPoint] = None
+    boundary: Optional[GeoPolygon] = None
 
-    # Status
-    status: MaintenanceStatus = MaintenanceStatus.OPERATIONAL
-    health_score: float = 100.0  # 0-100
-    efficiency: float = 1.0  # 0-1
+    # Physical characteristics
+    acreage: float = 0.0
+    usable_acreage: float = 0.0
 
-    # Dates
-    installation_date: Optional[datetime] = None
-    last_maintenance: Optional[datetime] = None
-    next_scheduled_maintenance: Optional[datetime] = None
-    warranty_expiry: Optional[datetime] = None
+    # Ownership
+    owner_name: str = ""
+    owner_address: str = ""
+    owner_type: str = ""  # individual, corporation, government, etc.
 
-    # Defects
-    defects: list[Defect] = field(default_factory=list)
+    # Zoning
+    zoning_code: str = ""
+    zoning_type: ZoningType = ZoningType.UNKNOWN
+    zoning_description: str = ""
+    solar_permission: LandUsePermission = LandUsePermission.UNKNOWN
+
+    # Valuation
+    assessed_value: float = 0.0
+    market_value: float = 0.0
+    tax_amount: float = 0.0
+
+    # Land characteristics
+    land_use_current: str = ""
+    soil_type: str = ""
+    topography: str = ""
+    avg_slope_pct: float = 0.0
+    max_slope_pct: float = 0.0
+
+    # Utilities
+    road_access: bool = True
+    road_frontage_ft: float = 0.0
+    electric_on_site: bool = False
+    water_on_site: bool = False
+
+    # Scores (0-100)
+    site_score: float = 0.0
+    permitting_score: float = 0.0
+    grid_score: float = 0.0
+    environmental_score: float = 0.0
 
     # Metadata
-    manufacturer: str = ""
-    model: str = ""
-    serial_number: str = ""
-    tags: dict[str, str] = field(default_factory=dict)
+    data_source: str = ""
+    last_updated: datetime = field(default_factory=datetime.now)
 
-    @property
-    def age_years(self) -> float:
-        if self.installation_date:
-            return (datetime.now() - self.installation_date).days / 365.25
-        return 0.0
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "apn": self.apn,
+            "state": self.state,
+            "county": self.county,
+            "municipality": self.municipality,
+            "acreage": self.acreage,
+            "zoning_type": self.zoning_type.value,
+            "solar_permission": self.solar_permission.value,
+            "site_score": self.site_score,
+            "permitting_score": self.permitting_score,
+            "grid_score": self.grid_score,
+            "environmental_score": self.environmental_score,
+            "centroid": self.centroid.to_dict() if self.centroid else None,
+        }
 
-    @property
-    def active_defects(self) -> list[Defect]:
-        return [d for d in self.defects if d.severity.value >= AlertSeverity.LOW.value]
 
-    @property
-    def degradation_pct(self) -> float:
-        if self.rated_capacity_kw > 0:
-            return (1 - self.actual_capacity_kw / self.rated_capacity_kw) * 100
-        return 0.0
+# =============================================================================
+# Permitting Types
+# =============================================================================
+
+@dataclass
+class Jurisdiction:
+    """Authority Having Jurisdiction (AHJ) for permitting."""
+    id: str = field(default_factory=lambda: str(uuid4()))
+    name: str = ""
+    type: str = ""  # county, city, township, etc.
+    state: str = ""
+
+    # Contact
+    address: str = ""
+    phone: str = ""
+    email: str = ""
+    website: str = ""
+
+    # Solar policy
+    solar_ordinance_exists: bool = False
+    ordinance_url: str = ""
+    ordinance_text: str = ""
+
+    # Permitting
+    solar_permission: LandUsePermission = LandUsePermission.UNKNOWN
+    permitted_zones: list[str] = field(default_factory=list)
+    prohibited_zones: list[str] = field(default_factory=list)
+
+    # Requirements
+    setback_requirements: dict[str, float] = field(default_factory=dict)
+    height_limit_ft: float = 0.0
+    lot_coverage_max_pct: float = 0.0
+    screening_required: bool = False
+    decommissioning_required: bool = False
+
+    # Process
+    permit_types_required: list[str] = field(default_factory=list)
+    public_hearing_required: bool = False
+    avg_approval_days: int = 0
+
+    # Scoring
+    permitting_risk_score: float = 50.0  # 0-100, lower is better
+
+    # Analysis
+    ai_analysis: str = ""
+    last_analyzed: Optional[datetime] = None
 
     def to_dict(self) -> dict:
         return {
             "id": self.id,
             "name": self.name,
-            "asset_type": self.asset_type.value,
-            "rated_capacity_kw": self.rated_capacity_kw,
-            "actual_capacity_kw": self.actual_capacity_kw,
-            "status": self.status.value,
-            "health_score": self.health_score,
-            "efficiency": self.efficiency,
-            "age_years": self.age_years,
-            "degradation_pct": self.degradation_pct,
-            "active_defects": len(self.active_defects),
+            "state": self.state,
+            "solar_permission": self.solar_permission.value,
+            "permitting_risk_score": self.permitting_risk_score,
+            "avg_approval_days": self.avg_approval_days,
+            "public_hearing_required": self.public_hearing_required,
         }
 
 
+@dataclass
+class PermitApplication:
+    """Permit application tracking."""
+    id: str = field(default_factory=lambda: str(uuid4()))
+    project_id: str = ""
+    jurisdiction_id: str = ""
+
+    permit_type: str = ""  # SUP, CUP, site plan, building, etc.
+    status: PermitStatus = PermitStatus.NOT_STARTED
+
+    # Timeline
+    submitted_date: Optional[date] = None
+    expected_decision_date: Optional[date] = None
+    actual_decision_date: Optional[date] = None
+
+    # Details
+    conditions: list[str] = field(default_factory=list)
+    documents: list[str] = field(default_factory=list)
+    fees_paid: float = 0.0
+
+    notes: str = ""
+
+
 # =============================================================================
-# Solar Assets
+# Grid / Interconnection Types
 # =============================================================================
 
 @dataclass
-class SolarPanel(RenewableAsset):
-    """Individual solar panel."""
-    asset_type: AssetType = field(default=AssetType.SOLAR_PANEL)
-
-    # Panel specs
-    cell_type: str = "monocrystalline"  # mono, poly, thin-film
-    cell_count: int = 72
-    panel_wattage: float = 400.0
-
-    # Electrical
-    voc: float = 48.0  # Open circuit voltage
-    isc: float = 10.0  # Short circuit current
-    vmp: float = 40.0  # Voltage at max power
-    imp: float = 10.0  # Current at max power
-
-    # Temperature coefficients
-    temp_coeff_pmax: float = -0.35  # %/C
-    temp_coeff_voc: float = -0.28  # %/C
-    temp_coeff_isc: float = 0.05  # %/C
-
-    # Physical
-    area_m2: float = 2.0
-    weight_kg: float = 22.0
-    tilt_angle: float = 30.0
-    azimuth: float = 180.0  # 180 = South
-
-    # Current conditions
-    current_temp_c: float = 25.0
-    current_irradiance: float = 0.0
-    current_power_w: float = 0.0
-
-    # String position
-    string_id: str = ""
-    position_in_string: int = 0
-
-    def calculate_power_output(
-        self,
-        irradiance_wm2: float,
-        ambient_temp_c: float,
-        noct: float = 45.0,
-    ) -> float:
-        """Calculate expected power output under current conditions."""
-        if irradiance_wm2 <= 0:
-            return 0.0
-
-        # Cell temperature
-        cell_temp = ambient_temp_c + (noct - 20) * (irradiance_wm2 / 800)
-
-        # Temperature derating
-        temp_diff = cell_temp - 25  # STC is 25C
-        temp_factor = 1 + (self.temp_coeff_pmax / 100) * temp_diff
-
-        # Irradiance factor
-        irrad_factor = irradiance_wm2 / 1000  # STC is 1000 W/m2
-
-        # Calculated power
-        power = self.panel_wattage * irrad_factor * temp_factor * self.efficiency
-
-        return max(0.0, power)
-
-
-@dataclass
-class SolarArray:
-    """Array of solar panels (string or group)."""
+class Substation:
+    """Electrical substation."""
     id: str = field(default_factory=lambda: str(uuid4()))
     name: str = ""
-    panels: list[SolarPanel] = field(default_factory=list)
-    inverter_id: str = ""
+    utility: Utility = Utility.OTHER
 
-    # Configuration
-    strings_count: int = 1
-    panels_per_string: int = 20
+    location: Optional[GeoPoint] = None
+    voltage_kv: float = 0.0
 
-    # Electrical
-    dc_voltage: float = 0.0
-    dc_current: float = 0.0
-    ac_power_kw: float = 0.0
+    # Capacity
+    total_capacity_mw: float = 0.0
+    available_capacity_mw: float = 0.0
+    queued_capacity_mw: float = 0.0
 
-    @property
-    def rated_capacity_kw(self) -> float:
-        return sum(p.panel_wattage for p in self.panels) / 1000
+    # Status
+    accepts_new_interconnections: bool = True
+    upgrade_planned: bool = False
+    upgrade_completion_date: Optional[date] = None
 
-    @property
-    def current_power_kw(self) -> float:
-        return sum(p.current_power_w for p in self.panels) / 1000
-
-    @property
-    def health_score(self) -> float:
-        if not self.panels:
-            return 100.0
-        return sum(p.health_score for p in self.panels) / len(self.panels)
-
-    @property
-    def defect_count(self) -> int:
-        return sum(len(p.active_defects) for p in self.panels)
-
-
-@dataclass
-class SolarFarm(RenewableAsset):
-    """Complete solar farm installation."""
-    asset_type: AssetType = field(default=AssetType.SOLAR_FARM)
-
-    arrays: list[SolarArray] = field(default_factory=list)
-    inverters: list[str] = field(default_factory=list)  # inverter IDs
-
-    # Farm specs
-    total_panels: int = 0
-    total_area_hectares: float = 0.0
-    dc_capacity_mw: float = 0.0
-    ac_capacity_mw: float = 0.0
-
-    # Performance
-    lifetime_energy_mwh: float = 0.0
-    annual_energy_mwh: float = 0.0
-    capacity_factor: float = 0.0
-    performance_ratio: float = 0.0
-
-    # Grid connection
-    grid_connection_id: str = ""
-    ppa_price_kwh: float = 0.0
-
-    @property
-    def current_power_mw(self) -> float:
-        return sum(a.current_power_kw for a in self.arrays) / 1000
-
-    @property
-    def total_defects(self) -> int:
-        return sum(a.defect_count for a in self.arrays)
-
-    def get_performance_metrics(self) -> dict:
+    def to_dict(self) -> dict:
         return {
-            "current_power_mw": self.current_power_mw,
-            "capacity_factor": self.capacity_factor,
-            "performance_ratio": self.performance_ratio,
-            "health_score": self.health_score,
-            "total_defects": self.total_defects,
-            "lifetime_energy_mwh": self.lifetime_energy_mwh,
+            "id": self.id,
+            "name": self.name,
+            "utility": self.utility.value,
+            "voltage_kv": self.voltage_kv,
+            "available_capacity_mw": self.available_capacity_mw,
+            "queued_capacity_mw": self.queued_capacity_mw,
+            "location": self.location.to_dict() if self.location else None,
         }
 
 
-# =============================================================================
-# Wind Assets
-# =============================================================================
-
 @dataclass
-class WindTurbine(RenewableAsset):
-    """Individual wind turbine."""
-    asset_type: AssetType = field(default=AssetType.WIND_TURBINE)
+class TransmissionLine:
+    """Transmission or distribution line."""
+    id: str = field(default_factory=lambda: str(uuid4()))
+    name: str = ""
+    utility: Utility = Utility.OTHER
 
-    # Turbine specs
-    hub_height_m: float = 80.0
-    rotor_diameter_m: float = 100.0
-    blade_count: int = 3
+    voltage_kv: float = 0.0
+    line_type: str = ""  # transmission, distribution, feeder
 
-    # Power curve
-    cut_in_speed_ms: float = 3.0
-    rated_speed_ms: float = 12.0
-    cut_out_speed_ms: float = 25.0
-    survival_speed_ms: float = 50.0
+    # Capacity
+    thermal_rating_mw: float = 0.0
+    available_capacity_mw: float = 0.0
 
-    # Current state
-    rotor_speed_rpm: float = 0.0
-    generator_speed_rpm: float = 0.0
-    pitch_angle_deg: float = 0.0
-    yaw_angle_deg: float = 0.0
+    # Route
+    start_point: Optional[GeoPoint] = None
+    end_point: Optional[GeoPoint] = None
+    length_miles: float = 0.0
 
-    # Nacelle data
-    nacelle_temp_c: float = 25.0
-    gearbox_oil_temp_c: float = 50.0
-    generator_temp_c: float = 60.0
-
-    # Vibration analysis
-    tower_vibration: float = 0.0
-    nacelle_vibration: float = 0.0
-    drivetrain_vibration: float = 0.0
-
-    # Production
-    current_power_kw: float = 0.0
-    wind_speed_ms: float = 0.0
-    wind_direction_deg: float = 0.0
-
-    @property
-    def rotor_area_m2(self) -> float:
-        return np.pi * (self.rotor_diameter_m / 2) ** 2
-
-    @property
-    def tip_speed_ratio(self) -> float:
-        if self.wind_speed_ms > 0:
-            tip_speed = self.rotor_speed_rpm * np.pi * self.rotor_diameter_m / 60
-            return tip_speed / self.wind_speed_ms
-        return 0.0
-
-    def calculate_power_output(
-        self,
-        wind_speed_ms: float,
-        air_density: float = 1.225,
-    ) -> float:
-        """Calculate expected power from wind speed."""
-        if wind_speed_ms < self.cut_in_speed_ms:
-            return 0.0
-        if wind_speed_ms > self.cut_out_speed_ms:
-            return 0.0
-        if wind_speed_ms >= self.rated_speed_ms:
-            return self.rated_capacity_kw * 1000
-
-        # Cubic relationship in operating region
-        cp = 0.45  # Power coefficient (typical)
-        power = 0.5 * air_density * self.rotor_area_m2 * (wind_speed_ms ** 3) * cp
-
-        return min(power, self.rated_capacity_kw * 1000)
-
-
-@dataclass
-class WindFarm(RenewableAsset):
-    """Complete wind farm installation."""
-    asset_type: AssetType = field(default=AssetType.WIND_FARM)
-
-    turbines: list[WindTurbine] = field(default_factory=list)
-
-    # Farm specs
-    total_area_km2: float = 0.0
-    terrain_type: str = "onshore"  # onshore, offshore, complex
-
-    # Performance
-    lifetime_energy_mwh: float = 0.0
-    annual_energy_mwh: float = 0.0
-    capacity_factor: float = 0.0
-    availability: float = 0.0
-
-    # Wake effects
-    wake_loss_pct: float = 5.0
-
-    # Grid connection
-    grid_connection_id: str = ""
-    ppa_price_kwh: float = 0.0
-
-    @property
-    def current_power_mw(self) -> float:
-        return sum(t.current_power_kw for t in self.turbines) / 1000
-
-    @property
-    def average_wind_speed(self) -> float:
-        if not self.turbines:
-            return 0.0
-        return sum(t.wind_speed_ms for t in self.turbines) / len(self.turbines)
-
-    @property
-    def turbines_online(self) -> int:
-        return sum(1 for t in self.turbines if t.status == MaintenanceStatus.OPERATIONAL)
-
-
-# =============================================================================
-# Battery Storage
-# =============================================================================
-
-@dataclass
-class BatteryCell:
-    """Individual battery cell."""
-    id: str = field(default_factory=lambda: str(uuid4())[:8])
-
-    # Cell specs
-    chemistry: str = "NMC"  # NMC, LFP, NCA, etc.
-    nominal_voltage: float = 3.7
-    capacity_ah: float = 50.0
-
-    # State
-    voltage: float = 3.7
-    current: float = 0.0
-    soc: float = 50.0  # State of charge (%)
-    soh: float = 100.0  # State of health (%)
-    temperature_c: float = 25.0
-
-    # Limits
-    max_voltage: float = 4.2
-    min_voltage: float = 2.5
-    max_charge_current: float = 50.0
-    max_discharge_current: float = 100.0
-    max_temp_c: float = 45.0
-    min_temp_c: float = 0.0
-
-    # Cycle data
-    cycle_count: int = 0
-    energy_throughput_kwh: float = 0.0
-
-
-@dataclass
-class BatteryModule(RenewableAsset):
-    """Battery module (group of cells)."""
-    asset_type: AssetType = field(default=AssetType.BATTERY_MODULE)
-
-    cells: list[BatteryCell] = field(default_factory=list)
-
-    # Configuration
-    cells_series: int = 16
-    cells_parallel: int = 4
-
-    # Module state
-    voltage: float = 0.0
-    current: float = 0.0
-    soc: float = 50.0
-    soh: float = 100.0
-    power_kw: float = 0.0
-
-    # Balancing
-    cell_imbalance_mv: float = 0.0
-    balancing_active: bool = False
-
-    @property
-    def energy_capacity_kwh(self) -> float:
-        if not self.cells:
-            return 0.0
-        cell = self.cells[0]
-        return (
-            cell.nominal_voltage * self.cells_series *
-            cell.capacity_ah * self.cells_parallel / 1000
-        )
-
-    @property
-    def available_energy_kwh(self) -> float:
-        return self.energy_capacity_kwh * (self.soc / 100) * (self.soh / 100)
-
-
-@dataclass
-class BatterySystem(RenewableAsset):
-    """Complete battery energy storage system (BESS)."""
-    asset_type: AssetType = field(default=AssetType.BATTERY_SYSTEM)
-
-    modules: list[BatteryModule] = field(default_factory=list)
-
-    # System specs
-    energy_capacity_mwh: float = 0.0
-    power_capacity_mw: float = 0.0
-    round_trip_efficiency: float = 0.90
-
-    # State
-    soc: float = 50.0
-    soh: float = 100.0
-    power_kw: float = 0.0  # Positive = charging, negative = discharging
-
-    # Operating mode
-    mode: str = "standby"  # charging, discharging, standby, maintenance
-
-    # Thermal management
-    hvac_power_kw: float = 0.0
-    avg_temperature_c: float = 25.0
-
-    # Lifetime
-    total_cycles: int = 0
-    lifetime_throughput_mwh: float = 0.0
-
-    # Grid services
-    frequency_regulation: bool = True
-    peak_shaving: bool = True
-    arbitrage: bool = True
-
-    @property
-    def available_energy_mwh(self) -> float:
-        return self.energy_capacity_mwh * (self.soc / 100) * (self.soh / 100)
-
-    @property
-    def charge_power_available_mw(self) -> float:
-        charge_headroom = (100 - self.soc) / 100
-        return self.power_capacity_mw * charge_headroom
-
-    @property
-    def discharge_power_available_mw(self) -> float:
-        discharge_headroom = self.soc / 100
-        return self.power_capacity_mw * discharge_headroom
-
-
-# =============================================================================
-# Grid Integration
-# =============================================================================
 
 @dataclass
 class GridConnection:
-    """Grid interconnection point."""
+    """Grid interconnection point analysis."""
     id: str = field(default_factory=lambda: str(uuid4()))
-    name: str = ""
-    location: Optional[GeoLocation] = None
+    parcel_id: str = ""
 
-    # Connection specs
-    voltage_kv: float = 33.0
-    connection_capacity_mva: float = 100.0
-    export_limit_mw: float = 100.0
-    import_limit_mw: float = 50.0
+    # Nearest infrastructure
+    nearest_substation_id: str = ""
+    nearest_substation_name: str = ""
+    distance_to_substation_miles: float = 0.0
 
-    # Current state
-    power_export_mw: float = 0.0
-    power_import_mw: float = 0.0
-    voltage_pu: float = 1.0
-    frequency_hz: float = 50.0
-    power_factor: float = 0.95
+    nearest_transmission_id: str = ""
+    nearest_transmission_voltage_kv: float = 0.0
+    distance_to_transmission_miles: float = 0.0
 
-    # Grid signals
-    curtailment_active: bool = False
-    curtailment_limit_mw: float = 0.0
+    nearest_distribution_id: str = ""
+    distance_to_distribution_miles: float = 0.0
 
-    # Pricing
-    spot_price_mwh: float = 50.0
-    feed_in_tariff_mwh: float = 0.0
+    # Capacity
+    hosting_capacity_mw: float = 0.0
+    available_capacity_mw: float = 0.0
 
-    # Connected assets
-    connected_asset_ids: list[str] = field(default_factory=list)
+    # Utility
+    utility: Utility = Utility.OTHER
+    iso_rto: str = ""  # ERCOT, PJM, MISO, etc.
+
+    # Cost estimates
+    estimated_interconnection_cost: float = 0.0
+    estimated_upgrade_cost: float = 0.0
+    estimated_total_cost: float = 0.0
+    cost_per_mw: float = 0.0
+
+    # Timeline
+    estimated_study_months: int = 0
+    estimated_construction_months: int = 0
+
+    # Queue analysis
+    queue_position: int = 0
+    projects_ahead_in_queue: int = 0
+    queue_mw_ahead: float = 0.0
+
+    # Scoring
+    grid_score: float = 50.0  # 0-100
+    congestion_risk: str = "medium"  # low, medium, high
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "parcel_id": self.parcel_id,
+            "distance_to_substation_miles": self.distance_to_substation_miles,
+            "available_capacity_mw": self.available_capacity_mw,
+            "estimated_interconnection_cost": self.estimated_interconnection_cost,
+            "grid_score": self.grid_score,
+            "utility": self.utility.value,
+        }
+
+
+@dataclass
+class InterconnectionQueueEntry:
+    """Entry in utility interconnection queue."""
+    id: str = field(default_factory=lambda: str(uuid4()))
+    queue_id: str = ""  # Utility's queue ID
+
+    project_name: str = ""
+    developer: str = ""
+    project_type: ProjectType = ProjectType.UTILITY_SOLAR
+    capacity_mw: float = 0.0
+
+    # Location
+    county: str = ""
+    state: str = ""
+    substation: str = ""
+
+    # Status
+    status: InterconnectionStatus = InterconnectionStatus.APPLICATION_SUBMITTED
+    queue_date: Optional[date] = None
+
+    # Studies
+    feasibility_complete: bool = False
+    system_impact_complete: bool = False
+    facilities_study_complete: bool = False
+
+    # Costs
+    network_upgrade_cost: float = 0.0
+
+    # Timeline
+    expected_cod: Optional[date] = None
+
+    utility: Utility = Utility.OTHER
 
 
 # =============================================================================
-# Maintenance
+# Environmental Types
 # =============================================================================
 
 @dataclass
-class MaintenanceEvent:
-    """Maintenance event record."""
+class EnvironmentalConstraint:
+    """Environmental constraint or sensitive area."""
     id: str = field(default_factory=lambda: str(uuid4()))
-    asset_id: str = ""
+    parcel_id: str = ""
 
-    # Event details
-    event_type: str = "scheduled"  # scheduled, corrective, predictive, emergency
+    constraint_type: str = ""  # wetland, flood_zone, endangered_species, etc.
     description: str = ""
 
-    # Scheduling
-    scheduled_date: Optional[datetime] = None
-    started_at: Optional[datetime] = None
-    completed_at: Optional[datetime] = None
-    duration_hours: float = 0.0
+    # Coverage
+    affected_acreage: float = 0.0
+    affected_percentage: float = 0.0
 
-    # Resources
-    technicians: list[str] = field(default_factory=list)
-    parts_used: list[dict] = field(default_factory=list)
+    # Risk
+    risk_level: EnvironmentalRisk = EnvironmentalRisk.LOW
+    is_fatal_flaw: bool = False
 
-    # Costs
+    # Mitigation
+    mitigation_possible: bool = True
+    estimated_mitigation_cost: float = 0.0
+    mitigation_timeline_months: int = 0
+
+    # Source
+    data_source: str = ""
+    regulation: str = ""
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "constraint_type": self.constraint_type,
+            "risk_level": self.risk_level.name,
+            "affected_acreage": self.affected_acreage,
+            "is_fatal_flaw": self.is_fatal_flaw,
+        }
+
+
+@dataclass
+class EnvironmentalScreening:
+    """Complete environmental screening for a parcel."""
+    parcel_id: str = ""
+    screening_date: datetime = field(default_factory=datetime.now)
+
+    # Constraints found
+    constraints: list[EnvironmentalConstraint] = field(default_factory=list)
+
+    # Summary scores
+    overall_risk: EnvironmentalRisk = EnvironmentalRisk.LOW
+    environmental_score: float = 100.0  # 0-100
+
+    # Specific checks
+    wetlands_present: bool = False
+    wetlands_acreage: float = 0.0
+
+    flood_zone: str = ""  # X, A, AE, etc.
+    flood_zone_acreage: float = 0.0
+
+    endangered_species_habitat: bool = False
+    species_of_concern: list[str] = field(default_factory=list)
+
+    cultural_resources: bool = False
+    historic_sites_nearby: bool = False
+
+    prime_farmland: bool = False
+    prime_farmland_acreage: float = 0.0
+
+    # Recommendations
+    recommended_studies: list[str] = field(default_factory=list)
+    estimated_study_cost: float = 0.0
+
+    # AI analysis
+    ai_summary: str = ""
+
+    def to_dict(self) -> dict:
+        return {
+            "parcel_id": self.parcel_id,
+            "overall_risk": self.overall_risk.name,
+            "environmental_score": self.environmental_score,
+            "constraints_count": len(self.constraints),
+            "wetlands_present": self.wetlands_present,
+            "flood_zone": self.flood_zone,
+            "endangered_species_habitat": self.endangered_species_habitat,
+        }
+
+
+# =============================================================================
+# Solar Resource Types
+# =============================================================================
+
+@dataclass
+class SolarResource:
+    """Solar irradiance and resource data for a location."""
+    location: Optional[GeoPoint] = None
+
+    # Annual averages
+    ghi_kwh_m2_day: float = 0.0  # Global Horizontal Irradiance
+    dni_kwh_m2_day: float = 0.0  # Direct Normal Irradiance
+    dhi_kwh_m2_day: float = 0.0  # Diffuse Horizontal Irradiance
+
+    # Monthly GHI values
+    monthly_ghi: list[float] = field(default_factory=list)
+
+    # Capacity factor estimate
+    capacity_factor_fixed: float = 0.0  # Fixed tilt
+    capacity_factor_1axis: float = 0.0  # Single-axis tracking
+    capacity_factor_2axis: float = 0.0  # Dual-axis tracking
+
+    # Temperature
+    avg_temperature_c: float = 0.0
+    high_temperature_c: float = 0.0
+
+    # Data source
+    data_source: str = "NSRDB"  # NSRDB, PVGIS, etc.
+    data_years: str = ""
+
+    def to_dict(self) -> dict:
+        return {
+            "ghi_kwh_m2_day": self.ghi_kwh_m2_day,
+            "dni_kwh_m2_day": self.dni_kwh_m2_day,
+            "capacity_factor_1axis": self.capacity_factor_1axis,
+            "data_source": self.data_source,
+        }
+
+
+# =============================================================================
+# Financial Types
+# =============================================================================
+
+@dataclass
+class ProjectFinancials:
+    """Financial model for a renewable energy project."""
+    project_id: str = ""
+
+    # Project size
+    capacity_mw_dc: float = 0.0
+    capacity_mw_ac: float = 0.0
+
+    # Capital costs
+    module_cost: float = 0.0
+    inverter_cost: float = 0.0
+    bos_cost: float = 0.0  # Balance of system
     labor_cost: float = 0.0
-    parts_cost: float = 0.0
-    total_cost: float = 0.0
+    interconnection_cost: float = 0.0
+    land_cost: float = 0.0
+    permitting_cost: float = 0.0
+    development_cost: float = 0.0
+    contingency: float = 0.0
+    total_capex: float = 0.0
+    capex_per_watt: float = 0.0
 
-    # Impact
-    production_loss_mwh: float = 0.0
-    revenue_loss: float = 0.0
-
-    # Related
-    defect_ids: list[str] = field(default_factory=list)
-    work_order_id: str = ""
-    notes: str = ""
-
-    @property
-    def is_complete(self) -> bool:
-        return self.completed_at is not None
-
-
-# =============================================================================
-# Financial & Carbon
-# =============================================================================
-
-@dataclass
-class CarbonMetrics:
-    """Carbon and emissions tracking."""
-    timestamp: datetime = field(default_factory=datetime.now)
-    asset_id: str = ""
-    period: str = "daily"  # hourly, daily, monthly, yearly
-
-    # Avoided emissions
-    co2_avoided_tonnes: float = 0.0
-    grid_emission_factor: float = 0.4  # tCO2/MWh
-
-    # Energy production
-    clean_energy_mwh: float = 0.0
-
-    # Carbon credits
-    carbon_credits_earned: float = 0.0
-    carbon_price_tonne: float = 50.0
-    carbon_revenue: float = 0.0
-
-    # Lifecycle emissions
-    embodied_carbon_tonnes: float = 0.0
-    operational_carbon_tonnes: float = 0.0
-    net_carbon_benefit_tonnes: float = 0.0
-
-    @property
-    def carbon_intensity_gco2_kwh(self) -> float:
-        if self.clean_energy_mwh > 0:
-            return (self.operational_carbon_tonnes * 1000000) / (self.clean_energy_mwh * 1000)
-        return 0.0
-
-
-@dataclass
-class FinancialMetrics:
-    """Financial performance metrics."""
-    timestamp: datetime = field(default_factory=datetime.now)
-    asset_id: str = ""
-    period: str = "monthly"  # daily, monthly, quarterly, yearly
+    # Operating costs
+    om_cost_annual: float = 0.0
+    om_cost_per_kw: float = 0.0
+    insurance_annual: float = 0.0
+    land_lease_annual: float = 0.0
+    property_tax_annual: float = 0.0
+    total_opex_annual: float = 0.0
 
     # Revenue
-    energy_revenue: float = 0.0
-    capacity_revenue: float = 0.0
-    ancillary_revenue: float = 0.0
-    carbon_credit_revenue: float = 0.0
-    total_revenue: float = 0.0
-
-    # Costs
-    opex: float = 0.0
-    maintenance_cost: float = 0.0
-    insurance_cost: float = 0.0
-    land_lease: float = 0.0
-    grid_charges: float = 0.0
-    total_costs: float = 0.0
-
-    # Profitability
-    ebitda: float = 0.0
-    net_income: float = 0.0
+    ppa_price_kwh: float = 0.0
+    ppa_escalator_pct: float = 0.0
+    ppa_term_years: int = 0
 
     # Production
-    energy_produced_mwh: float = 0.0
-    energy_sold_mwh: float = 0.0
-    curtailed_mwh: float = 0.0
+    annual_production_mwh: float = 0.0
+    degradation_rate_pct: float = 0.5
 
-    # Prices
-    avg_price_mwh: float = 0.0
-    ppa_price_mwh: float = 0.0
-    spot_price_mwh: float = 0.0
-
-    # KPIs
-    capacity_factor: float = 0.0
-    availability: float = 0.0
+    # Returns
+    npv: float = 0.0
+    irr: float = 0.0
+    payback_years: float = 0.0
     lcoe: float = 0.0  # Levelized cost of energy
 
-    @property
-    def profit_margin(self) -> float:
-        if self.total_revenue > 0:
-            return (self.total_revenue - self.total_costs) / self.total_revenue
-        return 0.0
+    # Incentives
+    itc_eligible: bool = True
+    itc_rate: float = 0.30
+    itc_value: float = 0.0
+    depreciation_value: float = 0.0
+
+    def to_dict(self) -> dict:
+        return {
+            "project_id": self.project_id,
+            "capacity_mw_dc": self.capacity_mw_dc,
+            "total_capex": self.total_capex,
+            "capex_per_watt": self.capex_per_watt,
+            "lcoe": self.lcoe,
+            "npv": self.npv,
+            "irr": self.irr,
+            "payback_years": self.payback_years,
+        }
 
 
 # =============================================================================
-# Portfolio
+# Site Scoring
 # =============================================================================
 
 @dataclass
-class Portfolio:
-    """Renewable energy portfolio."""
+class SiteScore:
+    """Comprehensive site scoring for development viability."""
+    parcel_id: str = ""
+    scored_at: datetime = field(default_factory=datetime.now)
+
+    # Component scores (0-100)
+    overall_score: float = 0.0
+
+    permitting_score: float = 0.0
+    permitting_factors: dict[str, float] = field(default_factory=dict)
+
+    grid_score: float = 0.0
+    grid_factors: dict[str, float] = field(default_factory=dict)
+
+    environmental_score: float = 0.0
+    environmental_factors: dict[str, float] = field(default_factory=dict)
+
+    land_score: float = 0.0
+    land_factors: dict[str, float] = field(default_factory=dict)
+
+    solar_resource_score: float = 0.0
+    financial_score: float = 0.0
+
+    # Risk assessment
+    fatal_flaws: list[str] = field(default_factory=list)
+    high_risks: list[str] = field(default_factory=list)
+    medium_risks: list[str] = field(default_factory=list)
+
+    # Recommendations
+    proceed_recommendation: str = ""  # proceed, conditional, avoid
+    key_actions: list[str] = field(default_factory=list)
+
+    # AI analysis
+    ai_summary: str = ""
+
+    def to_dict(self) -> dict:
+        return {
+            "parcel_id": self.parcel_id,
+            "overall_score": self.overall_score,
+            "permitting_score": self.permitting_score,
+            "grid_score": self.grid_score,
+            "environmental_score": self.environmental_score,
+            "land_score": self.land_score,
+            "proceed_recommendation": self.proceed_recommendation,
+            "fatal_flaws_count": len(self.fatal_flaws),
+        }
+
+
+# =============================================================================
+# Project Types
+# =============================================================================
+
+@dataclass
+class Project:
+    """Renewable energy development project."""
     id: str = field(default_factory=lambda: str(uuid4()))
     name: str = ""
+
+    # Type and status
+    project_type: ProjectType = ProjectType.UTILITY_SOLAR
+    status: ProjectStatus = ProjectStatus.PROSPECTING
+
+    # Size
+    capacity_mw_dc: float = 0.0
+    capacity_mw_ac: float = 0.0
+    storage_mwh: float = 0.0
+
+    # Location
+    parcel_ids: list[str] = field(default_factory=list)
+    state: str = ""
+    county: str = ""
+
+    # Land
+    total_acreage: float = 0.0
+    lease_signed: bool = False
+    lease_terms: str = ""
+
+    # Permitting
+    jurisdiction_id: str = ""
+    permit_applications: list[str] = field(default_factory=list)
+    permits_approved: bool = False
+
+    # Interconnection
+    interconnection_queue_id: str = ""
+    interconnection_status: InterconnectionStatus = InterconnectionStatus.NOT_APPLIED
+    utility: Utility = Utility.OTHER
+    substation: str = ""
+
+    # Timeline
+    development_start: Optional[date] = None
+    target_cod: Optional[date] = None
+    actual_cod: Optional[date] = None
+
+    # Financials
+    estimated_capex: float = 0.0
+    ppa_executed: bool = False
+    ppa_price_kwh: float = 0.0
+    offtaker: str = ""
+
+    # Scoring
+    site_score: float = 0.0
+
+    # Team
+    developer: str = ""
     owner: str = ""
 
-    # Assets
-    solar_farms: list[SolarFarm] = field(default_factory=list)
-    wind_farms: list[WindFarm] = field(default_factory=list)
-    battery_systems: list[BatterySystem] = field(default_factory=list)
-    grid_connections: list[GridConnection] = field(default_factory=list)
+    # Notes
+    notes: str = ""
+    created_at: datetime = field(default_factory=datetime.now)
+    updated_at: datetime = field(default_factory=datetime.now)
 
-    # Aggregated metrics
-    total_capacity_mw: float = 0.0
-    total_storage_mwh: float = 0.0
-
-    @property
-    def solar_capacity_mw(self) -> float:
-        return sum(f.dc_capacity_mw for f in self.solar_farms)
-
-    @property
-    def wind_capacity_mw(self) -> float:
-        return sum(f.rated_capacity_kw for f in self.wind_farms) / 1000
-
-    @property
-    def storage_capacity_mwh(self) -> float:
-        return sum(b.energy_capacity_mwh for b in self.battery_systems)
-
-    @property
-    def current_generation_mw(self) -> float:
-        solar = sum(f.current_power_mw for f in self.solar_farms)
-        wind = sum(f.current_power_mw for f in self.wind_farms)
-        return solar + wind
-
-    @property
-    def total_assets(self) -> int:
-        return (
-            len(self.solar_farms) +
-            len(self.wind_farms) +
-            len(self.battery_systems)
-        )
-
-    def get_summary(self) -> dict:
+    def to_dict(self) -> dict:
         return {
             "id": self.id,
             "name": self.name,
-            "solar_capacity_mw": self.solar_capacity_mw,
-            "wind_capacity_mw": self.wind_capacity_mw,
-            "storage_capacity_mwh": self.storage_capacity_mwh,
-            "current_generation_mw": self.current_generation_mw,
-            "total_assets": self.total_assets,
+            "project_type": self.project_type.value,
+            "status": self.status.value,
+            "capacity_mw_dc": self.capacity_mw_dc,
+            "state": self.state,
+            "county": self.county,
+            "site_score": self.site_score,
+            "target_cod": self.target_cod.isoformat() if self.target_cod else None,
         }
+
+
+# =============================================================================
+# Feasibility Report
+# =============================================================================
+
+@dataclass
+class FeasibilityReport:
+    """Complete feasibility assessment report."""
+    id: str = field(default_factory=lambda: str(uuid4()))
+    parcel_id: str = ""
+    generated_at: datetime = field(default_factory=datetime.now)
+
+    # Parcel summary
+    parcel: Optional[Parcel] = None
+
+    # Assessments
+    site_score: Optional[SiteScore] = None
+    grid_connection: Optional[GridConnection] = None
+    environmental_screening: Optional[EnvironmentalScreening] = None
+    solar_resource: Optional[SolarResource] = None
+    financials: Optional[ProjectFinancials] = None
+    jurisdiction: Optional[Jurisdiction] = None
+
+    # Summary
+    overall_viability: str = ""  # excellent, good, fair, poor, not_viable
+    executive_summary: str = ""
+
+    # Recommendations
+    proceed_recommendation: str = ""
+    key_risks: list[str] = field(default_factory=list)
+    next_steps: list[str] = field(default_factory=list)
+
+    # Estimated project parameters
+    recommended_capacity_mw: float = 0.0
+    estimated_capex: float = 0.0
+    estimated_lcoe: float = 0.0
+    estimated_timeline_months: int = 0
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "parcel_id": self.parcel_id,
+            "generated_at": self.generated_at.isoformat(),
+            "overall_viability": self.overall_viability,
+            "recommended_capacity_mw": self.recommended_capacity_mw,
+            "estimated_lcoe": self.estimated_lcoe,
+            "proceed_recommendation": self.proceed_recommendation,
+        }
+
+    def to_json(self) -> str:
+        return json.dumps(self.to_dict(), indent=2)

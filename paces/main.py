@@ -1,11 +1,10 @@
 """
-Paces - Renewable Energy Management Platform
-Main entry point
+Paces - AI-Powered Renewable Energy Site Development Platform
 
 Usage:
-    python -m paces.main --config configs/paces.yaml
-    python -m paces.main api --port 8080
-    python -m paces.main analyze --solar-farm farm1 --output results/
+    python -m paces.main                    # Start API server
+    python -m paces.main api --port 8000    # Start API with custom port
+    python -m paces.main analyze --parcel <id>  # Analyze a parcel
 """
 
 from __future__ import annotations
@@ -13,19 +12,16 @@ from __future__ import annotations
 import argparse
 import asyncio
 import sys
-from pathlib import Path
 
 from loguru import logger
 
 from paces import __version__
-from paces.core.config import load_paces_config
-from paces.core.engine import PacesEngine
+from paces.core.config import load_config
 
 
-def setup_logging(level: str = "INFO", log_file: str = None) -> None:
+def setup_logging(level: str = "INFO") -> None:
     """Configure logging."""
     logger.remove()
-
     logger.add(
         sys.stderr,
         level=level,
@@ -33,20 +29,11 @@ def setup_logging(level: str = "INFO", log_file: str = None) -> None:
         colorize=True,
     )
 
-    if log_file:
-        logger.add(
-            log_file,
-            level="DEBUG",
-            rotation="100 MB",
-            retention="7 days",
-        )
-
 
 def parse_args() -> argparse.Namespace:
     """Parse command line arguments."""
     parser = argparse.ArgumentParser(
-        description="Paces - Renewable Energy Management Platform",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
+        description="Paces - AI-Powered Renewable Energy Site Development Platform",
     )
 
     parser.add_argument(
@@ -70,29 +57,17 @@ def parse_args() -> argparse.Namespace:
 
     subparsers = parser.add_subparsers(dest="command", help="Commands")
 
-    # API server command
+    # API command
     api_parser = subparsers.add_parser("api", help="Start API server")
     api_parser.add_argument("--host", default="0.0.0.0")
-    api_parser.add_argument("--port", type=int, default=8080)
+    api_parser.add_argument("--port", type=int, default=8000)
     api_parser.add_argument("--reload", action="store_true")
 
     # Analyze command
-    analyze_parser = subparsers.add_parser("analyze", help="Run analysis")
-    analyze_parser.add_argument("--solar-farm", help="Solar farm ID to analyze")
-    analyze_parser.add_argument("--wind-farm", help="Wind farm ID to analyze")
+    analyze_parser = subparsers.add_parser("analyze", help="Analyze a site")
+    analyze_parser.add_argument("--parcel", required=True, help="Parcel ID or APN")
+    analyze_parser.add_argument("--capacity", type=float, default=5.0)
     analyze_parser.add_argument("--output", default="./output")
-
-    # Forecast command
-    forecast_parser = subparsers.add_parser("forecast", help="Generate forecast")
-    forecast_parser.add_argument("--asset", required=True, help="Asset ID")
-    forecast_parser.add_argument("--hours", type=int, default=48)
-    forecast_parser.add_argument("--output", default="./output")
-
-    # Report command
-    report_parser = subparsers.add_parser("report", help="Generate report")
-    report_parser.add_argument("--type", choices=["financial", "carbon", "esg"], default="financial")
-    report_parser.add_argument("--period", choices=["daily", "monthly", "yearly"], default="monthly")
-    report_parser.add_argument("--output", default="./output")
 
     return parser.parse_args()
 
@@ -102,7 +77,7 @@ async def run_api(args: argparse.Namespace) -> None:
     import uvicorn
     from paces.api.app import create_app
 
-    config = load_paces_config(args.config)
+    config = load_config(args.config)
     app = create_app(config)
 
     uvicorn.run(
@@ -114,8 +89,11 @@ async def run_api(args: argparse.Namespace) -> None:
 
 
 async def run_analysis(args: argparse.Namespace) -> None:
-    """Run asset analysis."""
-    config = load_paces_config(args.config)
+    """Run site analysis."""
+    from paces.core.engine import PacesEngine
+    from paces.core.types import Parcel, GeoPoint, ZoningType
+
+    config = load_config(args.config)
     engine = PacesEngine(config)
 
     if not await engine.initialize():
@@ -123,49 +101,35 @@ async def run_analysis(args: argparse.Namespace) -> None:
         return
 
     try:
-        if args.solar_farm:
-            logger.info(f"Analyzing solar farm: {args.solar_farm}")
-            # Would load farm from database and analyze
-            # result = await engine.analyze_solar_farm(farm)
-            logger.info("Solar analysis complete")
+        # Create a sample parcel for demo
+        parcel = Parcel(
+            apn=args.parcel,
+            state="NC",
+            county="Wake",
+            municipality="Raleigh",
+            acreage=50.0,
+            zoning_type=ZoningType.AGRICULTURAL,
+            centroid=GeoPoint(35.7796, -78.6382),
+        )
 
-        if args.wind_farm:
-            logger.info(f"Analyzing wind farm: {args.wind_farm}")
-            # result = await engine.analyze_wind_turbine(turbine)
-            logger.info("Wind analysis complete")
+        engine.add_parcel(parcel)
 
-    finally:
-        await engine.shutdown()
+        logger.info(f"Analyzing parcel: {args.parcel}")
+        report = await engine.analyze_site(
+            parcel=parcel,
+            target_capacity_mw=args.capacity,
+        )
 
+        if report:
+            print("\n" + "=" * 60)
+            print(report.executive_summary)
+            print("=" * 60)
 
-async def run_forecast(args: argparse.Namespace) -> None:
-    """Generate forecast."""
-    config = load_paces_config(args.config)
-    engine = PacesEngine(config)
-
-    if not await engine.initialize():
-        logger.error("Engine initialization failed")
-        return
-
-    try:
-        logger.info(f"Generating forecast for {args.asset}, {args.hours} hours")
-
-        if args.asset.startswith("solar"):
-            forecast = await engine.forecast_solar_production(args.asset, args.hours)
+            # Generate report
+            content = await engine.generate_report(report, format="markdown")
+            print(content)
         else:
-            forecast = await engine.forecast_wind_production(args.asset, args.hours)
-
-        # Save forecast
-        output_dir = Path(args.output)
-        output_dir.mkdir(parents=True, exist_ok=True)
-
-        import json
-        output_file = output_dir / f"forecast_{args.asset}.json"
-        with open(output_file, "w") as f:
-            json.dump(forecast.to_dict(), f, indent=2, default=str)
-
-        logger.info(f"Forecast saved to {output_file}")
-        logger.info(f"Total energy: {forecast.total_energy_kwh:.2f} kWh")
+            logger.error("Analysis failed")
 
     finally:
         await engine.shutdown()
@@ -177,18 +141,17 @@ async def main() -> None:
     setup_logging(args.log_level)
 
     logger.info(f"Paces v{__version__}")
+    logger.info("AI-Powered Renewable Energy Site Development Platform")
     logger.info("=" * 50)
 
     if args.command == "api":
         await run_api(args)
     elif args.command == "analyze":
         await run_analysis(args)
-    elif args.command == "forecast":
-        await run_forecast(args)
     else:
         # Default: start API
         args.host = "0.0.0.0"
-        args.port = 8080
+        args.port = 8000
         args.reload = False
         await run_api(args)
 

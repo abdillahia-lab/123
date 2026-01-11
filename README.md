@@ -1,18 +1,18 @@
-# Paces - State-of-the-Art Renewable Energy Management Platform
+# Paces - AI-Powered Renewable Energy Site Development Platform
 
-A comprehensive AI-powered platform for renewable energy asset management, combining autonomous drone inspection (BAHB) with predictive analytics and portfolio optimization.
+A superior site prospecting, permitting analysis, and project development platform for solar, wind, and energy storage projects. Powered by agentic AI for automated due diligence.
 
 ## Overview
 
-Paces integrates cutting-edge AI models with real-time monitoring to deliver:
-- **Solar Farm Analytics** - Panel defect detection, thermal analysis, performance monitoring
-- **Wind Turbine Inspection** - Blade inspection, vibration analysis, component health
-- **Battery Storage Management** - SOC/SOH tracking, dispatch optimization, thermal management
-- **AI-Powered Forecasting** - Multi-model energy production and price predictions
-- **Portfolio Optimization** - Real-time dispatch, risk management, investment analysis
-- **Carbon & ESG Tracking** - CO2 avoidance, carbon credits, sustainability reporting
-- **Predictive Maintenance** - ML-based failure prediction, optimized scheduling
-- **Financial Analytics** - ROI, LCOE, revenue forecasting
+Paces helps renewable energy developers find viable sites, de-risk development, and get to power faster:
+
+- **Parcel Search & Discovery** - Search millions of parcels with custom filters
+- **LLM-Powered Permitting Analysis** - Parse zoning ordinances to predict permitting risk
+- **Grid Interconnection Analysis** - Analyze queue, capacity, and estimate costs
+- **Environmental Screening** - Screen for wetlands, flood zones, endangered species
+- **AI Site Scoring** - Comprehensive scoring across all development factors
+- **Financial Modeling** - LCOE, NPV, IRR, and PPA analysis
+- **Automated Reports** - Generate detailed feasibility reports
 
 ## Architecture
 
@@ -21,58 +21,72 @@ Paces integrates cutting-edge AI models with real-time monitoring to deliver:
 │                          PACES PLATFORM                                      │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐    │
-│  │    Solar     │  │     Wind     │  │   Battery    │  │     Grid     │    │
-│  │   Analyzer   │  │   Analyzer   │  │   Manager    │  │   Manager    │    │
-│  │              │  │              │  │              │  │              │    │
-│  │ • Defect Det │  │ • Blade Insp │  │ • SOC/SOH    │  │ • Power Flow │    │
-│  │ • Thermal    │  │ • Vibration  │  │ • Dispatch   │  │ • Curtailment│    │
-│  │ • PR Calc    │  │ • Power Curve│  │ • Thermal    │  │ • Markets    │    │
-│  └──────────────┘  └──────────────┘  └──────────────┘  └──────────────┘    │
-│                                                                              │
-│  ┌──────────────────────────────────────────────────────────────────────┐  │
-│  │                      AI INFERENCE PIPELINE                            │  │
-│  │                                                                        │  │
-│  │  ┌────────────┐  ┌────────────┐  ┌────────────┐  ┌────────────────┐  │  │
-│  │  │  YOLOv12   │  │  RF-DETR   │  │  SAM3 Nano │  │   Qwen2.5-VL   │  │  │
-│  │  │            │  │            │  │            │  │                │  │  │
-│  │  │ Ultra-Fast │  │ Transformer│  │  Precision │  │ Visual Language│  │  │
-│  │  │ Detection  │  │ Segmentation│ │   Masks    │  │   Analysis     │  │  │
-│  │  │   ~2ms     │  │   ~15ms    │  │   ~8ms     │  │    ~50ms       │  │  │
-│  │  └────────────┘  └────────────┘  └────────────┘  └────────────────┘  │  │
-│  └──────────────────────────────────────────────────────────────────────┘  │
+│  ┌────────────────────────────────────────────────────────────────────────┐ │
+│  │                        AI AGENT PIPELINE                                │ │
+│  │                                                                          │ │
+│  │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐                  │ │
+│  │  │  Permitting  │  │    Grid      │  │Environmental │                  │ │
+│  │  │    Agent     │  │   Agent      │  │    Agent     │                  │ │
+│  │  │              │  │              │  │              │                  │ │
+│  │  │ • LLM Parse  │  │ • Substation │  │ • Wetlands   │                  │ │
+│  │  │ • Zoning Map │  │ • Queue      │  │ • Flood Zone │                  │ │
+│  │  │ • Risk Score │  │ • Cost Est   │  │ • Species    │                  │ │
+│  │  └──────────────┘  └──────────────┘  └──────────────┘                  │ │
+│  │                            ▼                                            │ │
+│  │  ┌──────────────────────────────────────────────────────────────────┐  │ │
+│  │  │                    SITE ANALYSIS AGENT                            │  │ │
+│  │  │     Orchestrates all agents • Calculates site scores             │  │ │
+│  │  │     Generates recommendations • Identifies fatal flaws           │  │ │
+│  │  └──────────────────────────────────────────────────────────────────┘  │ │
+│  └────────────────────────────────────────────────────────────────────────┘ │
 │                                                                              │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐    │
-│  │  Forecasting │  │  Portfolio   │  │   Carbon     │  │  Financial   │    │
-│  │    Engine    │  │  Optimizer   │  │   Tracker    │  │   Analyzer   │    │
+│  │   Parcel     │  │   Solar      │  │  Financial   │  │   Report     │    │
+│  │   Search     │  │   Resource   │  │   Analyzer   │  │   Generator  │    │
 │  │              │  │              │  │              │  │              │    │
-│  │ • TFT/Prophet│  │ • Dispatch   │  │ • CO2 Track  │  │ • ROI/NPV    │    │
-│  │ • Weather    │  │ • Risk Mgmt  │  │ • ESG Report │  │ • LCOE       │    │
-│  │ • Ensemble   │  │ • Investment │  │ • RECs       │  │ • Revenue    │    │
+│  │ • GIS Query  │  │ • Irradiance │  │ • LCOE       │  │ • Markdown   │    │
+│  │ • Filters    │  │ • Capacity   │  │ • NPV/IRR    │  │ • HTML/PDF   │    │
+│  │ • Ranking    │  │ • Weather    │  │ • PPA Price  │  │ • Comparison │    │
 │  └──────────────┘  └──────────────┘  └──────────────┘  └──────────────┘    │
-│                                                                              │
-│  ┌──────────────────────────────────────────────────────────────────────┐  │
-│  │                    PREDICTIVE MAINTENANCE ENGINE                      │  │
-│  │   • ML-based failure prediction  • Cost-benefit optimization          │  │
-│  │   • Work order management        • Spare parts optimization          │  │
-│  └──────────────────────────────────────────────────────────────────────┘  │
 │                                                                              │
 ├─────────────────────────────────────────────────────────────────────────────┤
-│                            REST API (FastAPI)                                │
-│                    /api/portfolio  /api/forecast  /api/analytics             │
+│                         REST API (FastAPI)                                   │
+│    /parcels  /sites/analyze  /permitting  /grid  /environmental  /financial │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-## AI Models
+## Key Features
 
-| Model | Purpose | Performance |
-|-------|---------|-------------|
-| **YOLOv12-L** | Defect detection (solar/wind) | ~2ms/frame |
-| **RF-DETR** | Precision segmentation | ~15ms/frame |
-| **SAM3 Nano** | Point-prompt masking | ~8ms/frame |
-| **Qwen2.5-VL-3B-AWQ** | Visual language analysis | ~50ms/frame |
-| **Temporal Fusion Transformer** | Energy forecasting | 48h horizon |
-| **Prophet + Ensemble** | Price/load forecasting | Multi-model |
+### LLM-Powered Permitting Analysis
+Uses Claude/GPT-4 to parse zoning ordinances and extract:
+- Solar permission status (by-right, conditional use, prohibited)
+- Permitted and prohibited zones
+- Setback and height requirements
+- Screening and decommissioning requirements
+- Permitting risk scores
+
+### Grid Interconnection Analysis
+- Find nearest substations and transmission lines
+- Analyze interconnection queue position
+- Estimate interconnection and upgrade costs
+- Predict study and construction timelines
+- Assess congestion risk
+
+### Environmental Screening
+- Wetlands (NWI data)
+- FEMA flood zones
+- Endangered species habitat (USFWS IPaC)
+- Cultural/historic resources
+- Prime farmland
+- Environmental risk scoring
+
+### Financial Modeling
+- CAPEX estimation ($0.65/W default)
+- OPEX projection
+- NPV and IRR calculation
+- LCOE computation
+- Minimum PPA price for target IRR
+- Sensitivity analysis
 
 ## Installation
 
@@ -88,11 +102,8 @@ source venv/bin/activate
 # Install dependencies
 pip install -r requirements.txt
 
-# Install Paces
-pip install -e .
-
-# Download AI models
-./scripts/download_models.sh
+# Start API server
+python -m paces.main api --port 8000
 ```
 
 ## Quick Start
@@ -100,11 +111,7 @@ pip install -e .
 ### Start the API Server
 
 ```bash
-# Start with default configuration
-python -m paces.main api --port 8080
-
-# Or with custom config
-python -m paces.main --config configs/paces.yaml api
+python -m paces.main api --port 8000
 ```
 
 ### Python SDK Usage
@@ -112,28 +119,40 @@ python -m paces.main --config configs/paces.yaml api
 ```python
 import asyncio
 from paces import PacesEngine
-from paces.core.types import SolarFarm, WindFarm, Portfolio
+from paces.core.types import Parcel, GeoPoint, ZoningType
 
 async def main():
     # Initialize engine
     engine = PacesEngine()
     await engine.initialize()
 
-    # Generate forecasts
-    solar_forecast = await engine.forecast_solar_production("solar_farm_1", hours=48)
-    print(f"Expected solar: {solar_forecast.total_energy_kwh:.0f} kWh")
+    # Create a parcel
+    parcel = Parcel(
+        apn="1234-56-7890",
+        state="NC",
+        county="Wake",
+        municipality="Raleigh",
+        acreage=50.0,
+        zoning_type=ZoningType.AGRICULTURAL,
+        centroid=GeoPoint(35.7796, -78.6382),
+    )
+    engine.add_parcel(parcel)
 
-    wind_forecast = await engine.forecast_wind_production("wind_farm_1", hours=48)
-    print(f"Expected wind: {wind_forecast.total_energy_kwh:.0f} kWh")
+    # Analyze the site
+    report = await engine.analyze_site(
+        parcel=parcel,
+        target_capacity_mw=5.0,
+    )
 
-    # Get carbon metrics
-    carbon = await engine.get_carbon_metrics(period="monthly")
-    print(f"CO2 avoided: {carbon.co2_avoided_tonnes:.1f} tonnes")
+    print(f"Overall Score: {report.site_score.overall_score:.0f}/100")
+    print(f"Recommendation: {report.proceed_recommendation}")
+    print(f"Viability: {report.overall_viability}")
 
-    # Predictive maintenance
-    failures = await engine.predict_failures("turbine_1", horizon_days=30)
-    for f in failures:
-        print(f"Predicted: {f.failure_type} ({f.probability:.0%} probability)")
+    # Analyze financials
+    financials = engine.analyze_financials(parcel)
+    print(f"LCOE: ${financials['lcoe']:.3f}/kWh")
+    print(f"NPV: ${financials['npv']:,.0f}")
+    print(f"IRR: {financials['irr']:.1%}")
 
     await engine.shutdown()
 
@@ -142,111 +161,101 @@ asyncio.run(main())
 
 ## API Endpoints
 
-### Portfolio
+### Parcels
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/api/portfolio` | GET | Get portfolio summary |
-| `/api/portfolio/assets` | GET | List all assets |
+| `/parcels` | POST | Create a parcel |
+| `/parcels` | GET | Search parcels |
+| `/parcels/{id}` | GET | Get parcel by ID |
 
-### Forecasting
+### Site Analysis
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/api/forecast/solar` | POST | Solar production forecast |
-| `/api/forecast/wind` | POST | Wind production forecast |
-| `/api/forecast/weather` | GET | Weather forecast |
+| `/sites/analyze` | POST | Comprehensive site analysis |
+| `/sites/analyze-batch` | POST | Analyze multiple sites |
 
-### Battery
+### Permitting
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/api/battery/{id}/status` | GET | Battery status |
-| `/api/battery/{id}/optimize` | POST | Optimize dispatch |
+| `/permitting/analyze` | POST | Analyze permitting requirements |
 
-### Analytics
+### Grid
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/api/carbon/metrics` | GET | Carbon metrics |
-| `/api/financial/metrics` | GET | Financial metrics |
-| `/api/financial/roi/{id}` | GET | ROI analysis |
-| `/api/maintenance/{id}/predictions` | GET | Failure predictions |
+| `/grid/analyze` | POST | Grid interconnection analysis |
+
+### Environmental
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/environmental/screen` | POST | Environmental screening |
+
+### Financial
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/financial/analyze` | POST | Financial analysis |
+| `/financial/min-ppa` | POST | Calculate minimum PPA price |
+
+### Projects
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/projects` | POST | Create project |
+| `/projects` | GET | List projects |
+| `/projects/{id}` | GET | Get project |
+
+### Reports
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/reports/feasibility` | POST | Generate feasibility report |
 
 ## Project Structure
 
 ```
 paces/
-├── paces/                    # Paces renewable energy platform
-│   ├── core/                # Core infrastructure
-│   │   ├── types.py        # Data models
+├── paces/
+│   ├── agents/              # AI Agents
+│   │   ├── base.py         # Base agent class
+│   │   ├── permitting.py   # LLM permitting analysis
+│   │   ├── grid.py         # Grid interconnection
+│   │   ├── environmental.py # Environmental screening
+│   │   ├── site.py         # Site analysis orchestrator
+│   │   └── report.py       # Report generation
+│   ├── core/
+│   │   ├── types.py        # Data models (1000+ lines)
 │   │   ├── config.py       # Configuration
 │   │   └── engine.py       # Main orchestration
-│   ├── solar/               # Solar analytics
-│   ├── wind/                # Wind analytics
-│   ├── battery/             # Battery management
-│   ├── forecasting/         # Energy forecasting
-│   ├── grid/                # Grid integration
-│   ├── portfolio/           # Portfolio optimization
-│   ├── carbon/              # Carbon tracking
-│   ├── maintenance/         # Predictive maintenance
-│   ├── financial/           # Financial analytics
-│   ├── api/                 # REST API
-│   └── main.py              # CLI entry point
-├── bahb/                     # BAHB drone inspection (integrated)
-├── configs/                  # Configuration files
-└── requirements.txt          # Dependencies
+│   ├── financial/
+│   │   └── analyzer.py     # Financial modeling
+│   ├── api/
+│   │   └── app.py          # FastAPI application
+│   └── main.py             # CLI entry point
+├── configs/
+│   └── paces.yaml          # Configuration
+└── requirements.txt
 ```
 
----
+## Site Scoring
 
-# BAHB - Autonomous Drone Inspection System
+Sites are scored on a 0-100 scale across four categories:
 
-Integrated drone inspection platform for renewable energy assets.
+| Category | Weight | Factors |
+|----------|--------|---------|
+| **Permitting** | 30% | Permission type, public hearing, moratoriums |
+| **Grid** | 30% | Distance, capacity, queue, cost |
+| **Environmental** | 20% | Wetlands, flood, species, farmland |
+| **Land** | 20% | Acreage, slope, access |
 
-## Hardware Platform
+**Recommendations:**
+- Score >= 70: **Proceed**
+- Score 50-70: **Conditional** (address risks)
+- Score < 50: **Avoid**
 
-| Component | Model | Purpose |
-|-----------|-------|---------|
-| **Compute** | DJI Manifold 3 | Edge AI inference (NVIDIA Orin NX) |
-| **Aircraft** | DJI Matrice 400 | Industrial inspection drone |
-| **Camera** | DJI H30T | Thermal + Wide + Zoom + Laser RF |
+## Data Sources
 
-## Inspection Capabilities
-
-### Solar Farm Inspection
-- **Panel Defects**: Cell cracks, hotspots, snail trails, delamination
-- **Thermal Imaging**: Temperature mapping, hotspot detection
-- **Soiling Analysis**: Dust, bird droppings, shading detection
-- **Performance Impact**: Power loss estimation
-
-### Wind Turbine Inspection
-- **Blade Defects**: Cracks, erosion, lightning damage
-- **Component Analysis**: Nacelle, hub, tower inspection
-- **Thermal Anomalies**: Gearbox, generator overheating
-
-### Substation & Grid Inspection
-- **Transformers**: Oil leaks, thermal anomalies, corona discharge
-- **Insulators**: Cracks, contamination, flashover damage
-- **Conductors**: Sagging, corrosion, hot joints
-
-## Performance Targets (Manifold 3)
-
-| Model | Resolution | Inference Time | FPS |
-|-------|------------|----------------|-----|
-| YOLOv12-L | 1280x720 | ~2ms | 500 |
-| RF-DETR | 640x640 | ~15ms | 66 |
-| SAM3 Nano | 1024x1024 | ~8ms | 125 |
-| Qwen2.5-VL-3B | 448x448 | ~50ms | 20 |
-
-## Usage
-
-```bash
-# Start inspection system
-python -m bahb.main --config configs/production.yaml
-
-# Solar farm inspection
-python -m bahb.main --profile solar --site "Solar Farm Alpha"
-
-# Wind turbine inspection
-python -m bahb.main --profile wind --site "Wind Farm Beta"
-```
+- **Parcels**: Regrid, county assessor data
+- **Zoning**: Municipal ordinances, LLM parsing
+- **Grid**: EIA, utility queue data
+- **Environmental**: NWI, FEMA, USFWS IPaC, NRCS
+- **Solar Resource**: NSRDB, PVGIS
 
 ## License
 

@@ -1,368 +1,342 @@
 """
-Financial Analyzer - Renewable energy financial analytics.
+Financial Analyzer - Solar project financial modeling.
 
-Features:
-- Revenue tracking and forecasting
-- Cost analysis
-- ROI and NPV calculations
-- LCOE computation
-- PPA management
-- Financial reporting
+Calculates:
+- LCOE (Levelized Cost of Energy)
+- NPV (Net Present Value)
+- IRR (Internal Rate of Return)
+- Payback Period
+- PPA pricing analysis
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from dataclasses import dataclass
+from datetime import datetime
 from typing import Optional
+import math
 
-import numpy as np
 from loguru import logger
 
-from paces.core.config import PacesConfig
-from paces.core.types import FinancialMetrics, Portfolio
+from paces.core.types import (
+    Parcel,
+    ProjectFinancials,
+    SolarResource,
+    GridConnection,
+)
 
 
 @dataclass
-class ROIAnalysis:
-    """Return on Investment analysis."""
-    asset_id: str
-    analysis_date: datetime
-    investment_lifetime_years: int
+class FinancialAssumptions:
+    """Financial modeling assumptions."""
+    # Capacity
+    capacity_mw_dc: float = 5.0
+    dc_ac_ratio: float = 1.3
 
-    # Investment
-    capex: float
-    opex_annual: float
+    # Capital costs ($/W DC)
+    module_cost_per_w: float = 0.25
+    inverter_cost_per_w: float = 0.05
+    bos_cost_per_w: float = 0.15
+    labor_cost_per_w: float = 0.10
+    soft_cost_per_w: float = 0.10
 
-    # Returns
-    revenue_annual: float
-    carbon_revenue_annual: float
+    # Additional costs
+    interconnection_cost: float = 500_000
+    land_cost_per_acre: float = 5_000
+    contingency_pct: float = 0.10
 
-    # Metrics
-    npv: float
-    irr: float
-    payback_years: float
-    lcoe: float  # Levelized Cost of Energy ($/MWh)
-
-    # Projections
-    yearly_cash_flows: list[float] = field(default_factory=list)
-    cumulative_returns: list[float] = field(default_factory=list)
-
-
-@dataclass
-class FinancialReport:
-    """Financial performance report."""
-    report_period: str
-    start_date: datetime
-    end_date: datetime
-
-    # Revenue
-    energy_revenue: float = 0.0
-    capacity_revenue: float = 0.0
-    ancillary_revenue: float = 0.0
-    carbon_revenue: float = 0.0
-    total_revenue: float = 0.0
-
-    # Costs
-    maintenance_cost: float = 0.0
-    insurance_cost: float = 0.0
-    land_lease: float = 0.0
-    grid_charges: float = 0.0
-    admin_cost: float = 0.0
-    total_cost: float = 0.0
-
-    # Profitability
-    gross_profit: float = 0.0
-    ebitda: float = 0.0
-    net_income: float = 0.0
+    # Operating costs ($/kW-yr)
+    om_cost_per_kw: float = 12.0
+    insurance_per_kw: float = 3.0
+    land_lease_per_acre: float = 1_000
+    property_tax_rate: float = 0.015
 
     # Production
-    energy_produced_mwh: float = 0.0
-    avg_price_mwh: float = 0.0
+    capacity_factor: float = 0.25
+    degradation_rate: float = 0.005
 
-    # KPIs
-    capacity_factor: float = 0.0
-    availability: float = 0.0
-    profit_margin: float = 0.0
+    # Financials
+    project_life_years: int = 30
+    discount_rate: float = 0.08
+    inflation_rate: float = 0.025
+    tax_rate: float = 0.21
+
+    # Incentives
+    itc_rate: float = 0.30
+    itc_eligible: bool = True
+    macrs_years: int = 5
+
+    # Revenue
+    ppa_price_kwh: float = 0.035
+    ppa_escalator: float = 0.01
+    ppa_term_years: int = 20
 
 
 class FinancialAnalyzer:
     """
-    Renewable energy financial analyzer.
+    Solar project financial analyzer.
 
-    Provides:
-    - Real-time financial tracking
-    - ROI and NPV calculations
-    - LCOE computation
-    - Financial forecasting
-    - Budget vs actual analysis
+    Provides comprehensive financial modeling including:
+    - Capital cost estimation
+    - Operating cost projection
+    - Revenue forecasting
+    - Key metrics (LCOE, NPV, IRR)
+    - Sensitivity analysis
     """
 
-    def __init__(self, config: PacesConfig):
-        self.config = config
-        self.financial_config = config.financial
+    def __init__(self):
+        self.assumptions = FinancialAssumptions()
 
-        self._initialized = False
-
-    async def initialize(self) -> bool:
-        """Initialize financial analyzer."""
-        logger.info("Initializing Financial Analyzer...")
-
-        try:
-            self._initialized = True
-            logger.info("Financial Analyzer initialized")
-            return True
-
-        except Exception as e:
-            logger.error(f"Financial Analyzer initialization failed: {e}")
-            return False
-
-    async def get_metrics(
+    def analyze(
         self,
-        asset_id: str = None,
-        period: str = "monthly",
-        energy_mwh: float = None,
-        revenue: float = None,
-    ) -> FinancialMetrics:
-        """Get financial metrics for an asset or portfolio."""
-        # Calculate metrics based on inputs
-        price = self.financial_config.electricity_price_mwh
-        energy_revenue = (energy_mwh or 0) * price
-
-        if revenue is None:
-            revenue = energy_revenue
-
-        return FinancialMetrics(
-            timestamp=datetime.now(),
-            asset_id=asset_id or "portfolio",
-            period=period,
-            energy_revenue=energy_revenue,
-            total_revenue=revenue,
-            energy_produced_mwh=energy_mwh or 0,
-            avg_price_mwh=price,
-        )
-
-    async def calculate_roi(
-        self,
-        asset_id: str,
-        capex: float = None,
-        opex_annual: float = None,
-        revenue_annual: float = None,
-        capacity_mw: float = None,
-        capacity_factor: float = None,
-        years: int = 25,
-    ) -> ROIAnalysis:
+        parcel: Parcel,
+        grid_connection: GridConnection = None,
+        solar_resource: SolarResource = None,
+        assumptions: FinancialAssumptions = None,
+    ) -> ProjectFinancials:
         """
-        Calculate comprehensive ROI analysis.
+        Perform complete financial analysis for a solar project.
 
         Args:
-            asset_id: Asset identifier
-            capex: Capital expenditure
-            opex_annual: Annual operating costs
-            revenue_annual: Annual revenue (calculated if not provided)
-            capacity_mw: Installed capacity
-            capacity_factor: Expected capacity factor
-            years: Investment lifetime
+            parcel: Target parcel
+            grid_connection: Grid analysis results
+            solar_resource: Solar resource data
+            assumptions: Financial assumptions (uses defaults if not provided)
 
         Returns:
-            ROIAnalysis with all metrics
+            ProjectFinancials with complete analysis
         """
-        # Default values if not provided
-        if capex is None:
-            capex = (capacity_mw or 1) * 1_000_000  # $1M/MW typical
-        if opex_annual is None:
-            opex_annual = capex * 0.02  # 2% of capex typical
+        a = assumptions or self.assumptions
 
-        # Calculate annual energy
-        if revenue_annual is None and capacity_mw and capacity_factor:
-            annual_energy_mwh = capacity_mw * 8760 * capacity_factor
-            price = self.financial_config.electricity_price_mwh
-            revenue_annual = annual_energy_mwh * price
+        # Calculate project size based on land
+        usable_acres = parcel.usable_acreage or parcel.acreage * 0.8
+        max_capacity_from_land = usable_acres / 6  # ~6 acres per MW
 
-        if revenue_annual is None:
-            revenue_annual = capex * 0.1  # 10% return assumption
+        capacity_mw_dc = min(a.capacity_mw_dc, max_capacity_from_land)
+        capacity_mw_ac = capacity_mw_dc / a.dc_ac_ratio
 
-        # Annual cash flow
-        annual_cash_flow = revenue_annual - opex_annual
+        # Calculate CAPEX
+        capacity_w_dc = capacity_mw_dc * 1_000_000
 
-        # Discount rate
-        discount_rate = self.financial_config.discount_rate
+        module_cost = capacity_w_dc * a.module_cost_per_w
+        inverter_cost = capacity_w_dc * a.inverter_cost_per_w
+        bos_cost = capacity_w_dc * a.bos_cost_per_w
+        labor_cost = capacity_w_dc * a.labor_cost_per_w
+        soft_cost = capacity_w_dc * a.soft_cost_per_w
+
+        land_cost = usable_acres * a.land_cost_per_acre
+        interconnection_cost = grid_connection.estimated_total_cost if grid_connection else a.interconnection_cost
+
+        subtotal = module_cost + inverter_cost + bos_cost + labor_cost + soft_cost + land_cost + interconnection_cost
+        contingency = subtotal * a.contingency_pct
+        total_capex = subtotal + contingency
+
+        capex_per_watt = total_capex / capacity_w_dc
+
+        # Calculate OPEX
+        capacity_kw = capacity_mw_dc * 1_000
+        om_cost = capacity_kw * a.om_cost_per_kw
+        insurance = capacity_kw * a.insurance_per_kw
+        land_lease = usable_acres * a.land_lease_per_acre
+        property_tax = total_capex * a.property_tax_rate
+
+        total_opex = om_cost + insurance + land_lease + property_tax
+
+        # Calculate production
+        if solar_resource and solar_resource.capacity_factor_1axis > 0:
+            capacity_factor = solar_resource.capacity_factor_1axis
+        else:
+            capacity_factor = a.capacity_factor
+
+        annual_production = capacity_mw_dc * 8760 * capacity_factor * 1000  # MWh -> kWh
+
+        # Calculate ITC
+        itc_value = 0
+        if a.itc_eligible:
+            itc_value = total_capex * a.itc_rate
+
+        # Calculate NPV and cash flows
+        cash_flows = [-total_capex]
+        cumulative_production = 0
+
+        for year in range(1, a.project_life_years + 1):
+            # Degraded production
+            degraded_production = annual_production * ((1 - a.degradation_rate) ** year)
+            cumulative_production += degraded_production
+
+            # Escalated PPA price
+            if year <= a.ppa_term_years:
+                price = a.ppa_price_kwh * ((1 + a.ppa_escalator) ** (year - 1))
+            else:
+                # After PPA, assume merchant pricing
+                price = a.ppa_price_kwh * ((1 + a.ppa_escalator) ** a.ppa_term_years) * 0.8
+
+            revenue = degraded_production * price
+
+            # Inflated OPEX
+            opex = total_opex * ((1 + a.inflation_rate) ** (year - 1))
+
+            # ITC in year 1
+            itc_benefit = itc_value if year == 1 else 0
+
+            # Cash flow
+            cf = revenue - opex + itc_benefit
+            cash_flows.append(cf)
 
         # Calculate NPV
-        cash_flows = [-capex] + [annual_cash_flow] * years
-        npv = sum(cf / (1 + discount_rate) ** i for i, cf in enumerate(cash_flows))
+        npv = sum(cf / ((1 + a.discount_rate) ** i) for i, cf in enumerate(cash_flows))
 
-        # Calculate IRR (simplified - would use numerical solver)
+        # Calculate IRR
         irr = self._calculate_irr(cash_flows)
 
-        # Payback period
+        # Calculate payback
         cumulative = 0
-        payback = years
-        cumulative_returns = [0.0]
-
-        for i, cf in enumerate(cash_flows):
+        payback = a.project_life_years
+        for year, cf in enumerate(cash_flows):
             cumulative += cf
-            cumulative_returns.append(cumulative)
-            if cumulative >= 0 and payback == years:
-                payback = i
+            if cumulative >= 0 and payback == a.project_life_years:
+                payback = year
 
-        # LCOE calculation
-        if capacity_mw and capacity_factor:
-            annual_energy = capacity_mw * 8760 * capacity_factor
-            total_costs = capex + sum(
-                opex_annual / (1 + discount_rate) ** i for i in range(1, years + 1)
-            )
-            total_energy = sum(
-                annual_energy / (1 + discount_rate) ** i for i in range(1, years + 1)
-            )
-            lcoe = total_costs / total_energy if total_energy > 0 else 0
-        else:
-            lcoe = 0
+        # Calculate LCOE
+        total_cost_pv = total_capex + sum(
+            (total_opex * ((1 + a.inflation_rate) ** (i - 1))) / ((1 + a.discount_rate) ** i)
+            for i in range(1, a.project_life_years + 1)
+        )
 
-        return ROIAnalysis(
-            asset_id=asset_id,
-            analysis_date=datetime.now(),
-            investment_lifetime_years=years,
-            capex=capex,
-            opex_annual=opex_annual,
-            revenue_annual=revenue_annual,
-            carbon_revenue_annual=0,  # Would calculate from carbon tracker
+        total_production_pv = sum(
+            (annual_production * ((1 - a.degradation_rate) ** i)) / ((1 + a.discount_rate) ** i)
+            for i in range(1, a.project_life_years + 1)
+        )
+
+        lcoe = (total_cost_pv - itc_value) / total_production_pv if total_production_pv > 0 else 0
+
+        return ProjectFinancials(
+            project_id=parcel.id,
+            capacity_mw_dc=capacity_mw_dc,
+            capacity_mw_ac=capacity_mw_ac,
+            module_cost=module_cost,
+            inverter_cost=inverter_cost,
+            bos_cost=bos_cost,
+            labor_cost=labor_cost,
+            interconnection_cost=interconnection_cost,
+            land_cost=land_cost,
+            development_cost=soft_cost,
+            contingency=contingency,
+            total_capex=total_capex,
+            capex_per_watt=capex_per_watt,
+            om_cost_annual=om_cost,
+            om_cost_per_kw=a.om_cost_per_kw,
+            insurance_annual=insurance,
+            land_lease_annual=land_lease,
+            property_tax_annual=property_tax,
+            total_opex_annual=total_opex,
+            ppa_price_kwh=a.ppa_price_kwh,
+            ppa_escalator_pct=a.ppa_escalator * 100,
+            ppa_term_years=a.ppa_term_years,
+            annual_production_mwh=annual_production / 1000,
+            degradation_rate_pct=a.degradation_rate * 100,
             npv=npv,
             irr=irr,
             payback_years=payback,
             lcoe=lcoe,
-            yearly_cash_flows=cash_flows,
-            cumulative_returns=cumulative_returns,
+            itc_eligible=a.itc_eligible,
+            itc_rate=a.itc_rate,
+            itc_value=itc_value,
         )
 
-    def _calculate_irr(self, cash_flows: list[float]) -> float:
-        """Calculate Internal Rate of Return."""
-        # Newton-Raphson method for IRR
-        def npv(rate):
-            return sum(cf / (1 + rate) ** i for i, cf in enumerate(cash_flows))
+    def _calculate_irr(self, cash_flows: list[float], guess: float = 0.1) -> float:
+        """Calculate Internal Rate of Return using Newton-Raphson."""
+        rate = guess
 
-        def npv_derivative(rate):
-            return sum(
-                -i * cf / (1 + rate) ** (i + 1) for i, cf in enumerate(cash_flows)
+        for _ in range(100):
+            npv = sum(cf / ((1 + rate) ** i) for i, cf in enumerate(cash_flows))
+            npv_derivative = sum(
+                -i * cf / ((1 + rate) ** (i + 1)) for i, cf in enumerate(cash_flows)
             )
 
-        rate = 0.1  # Initial guess
-        for _ in range(100):
-            f = npv(rate)
-            df = npv_derivative(rate)
-            if abs(df) < 1e-10:
+            if abs(npv_derivative) < 1e-10:
                 break
-            rate = rate - f / df
-            if rate < -1:
+
+            rate = rate - npv / npv_derivative
+
+            if rate < -0.99:
                 rate = -0.99
             if rate > 10:
-                rate = 0.1
+                rate = guess
 
         return rate
 
-    async def generate_report(
+    def sensitivity_analysis(
         self,
-        portfolio: Portfolio,
-        start_date: datetime,
-        end_date: datetime,
-        production_data: dict = None,
-    ) -> FinancialReport:
-        """Generate comprehensive financial report."""
-        period = f"{start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}"
+        parcel: Parcel,
+        base_assumptions: FinancialAssumptions,
+        variable: str,
+        range_pct: float = 0.20,
+        steps: int = 5,
+    ) -> list[dict]:
+        """
+        Perform sensitivity analysis on a variable.
 
-        # Extract production data
-        energy_mwh = production_data.get("energy_mwh", 0) if production_data else 0
+        Args:
+            parcel: Target parcel
+            base_assumptions: Base case assumptions
+            variable: Variable to vary (e.g., 'ppa_price_kwh', 'capacity_factor')
+            range_pct: +/- range as percentage
+            steps: Number of steps in each direction
 
-        # Calculate revenues
-        price = self.financial_config.electricity_price_mwh
-        energy_revenue = energy_mwh * price
-        carbon_revenue = energy_mwh * 0.4 * 50  # 0.4 tCO2/MWh * $50/tonne
+        Returns:
+            List of results at each sensitivity point
+        """
+        results = []
+        base_value = getattr(base_assumptions, variable)
 
-        total_revenue = energy_revenue + carbon_revenue
+        for i in range(-steps, steps + 1):
+            pct_change = i * (range_pct / steps)
+            test_value = base_value * (1 + pct_change)
 
-        # Calculate costs (simplified)
-        total_capacity = portfolio.solar_capacity_mw + portfolio.wind_capacity_mw
-        maintenance_cost = total_capacity * 5000  # $5k/MW/period
-        insurance_cost = total_capacity * 2000
-        admin_cost = total_capacity * 1000
+            # Create modified assumptions
+            test_assumptions = FinancialAssumptions(**{
+                k: v for k, v in base_assumptions.__dict__.items()
+            })
+            setattr(test_assumptions, variable, test_value)
 
-        total_cost = maintenance_cost + insurance_cost + admin_cost
+            # Run analysis
+            financials = self.analyze(parcel, assumptions=test_assumptions)
 
-        # Profitability
-        gross_profit = total_revenue - total_cost
-        profit_margin = gross_profit / total_revenue if total_revenue > 0 else 0
-
-        return FinancialReport(
-            report_period=period,
-            start_date=start_date,
-            end_date=end_date,
-            energy_revenue=energy_revenue,
-            carbon_revenue=carbon_revenue,
-            total_revenue=total_revenue,
-            maintenance_cost=maintenance_cost,
-            insurance_cost=insurance_cost,
-            admin_cost=admin_cost,
-            total_cost=total_cost,
-            gross_profit=gross_profit,
-            ebitda=gross_profit,
-            net_income=gross_profit * (1 - self.financial_config.tax_rate),
-            energy_produced_mwh=energy_mwh,
-            avg_price_mwh=price,
-            profit_margin=profit_margin,
-        )
-
-    async def forecast_revenue(
-        self,
-        portfolio: Portfolio,
-        months: int = 12,
-        price_scenario: str = "base",
-    ) -> dict:
-        """Forecast revenue for coming months."""
-        forecasts = []
-        now = datetime.now()
-
-        # Price scenarios
-        price_factors = {
-            "low": 0.8,
-            "base": 1.0,
-            "high": 1.2,
-        }
-        price_factor = price_factors.get(price_scenario, 1.0)
-        base_price = self.financial_config.electricity_price_mwh * price_factor
-
-        total_capacity = portfolio.solar_capacity_mw + portfolio.wind_capacity_mw
-
-        for i in range(months):
-            month_date = now + timedelta(days=30 * i)
-
-            # Seasonal capacity factor adjustment
-            month = month_date.month
-            if 4 <= month <= 9:  # Summer
-                cf = 0.30
-            else:
-                cf = 0.20
-
-            # Monthly energy
-            hours = 30 * 24
-            energy_mwh = total_capacity * hours * cf
-
-            # Revenue
-            revenue = energy_mwh * base_price
-
-            forecasts.append({
-                "month": month_date.strftime("%Y-%m"),
-                "energy_mwh": energy_mwh,
-                "revenue": revenue,
-                "capacity_factor": cf,
+            results.append({
+                "variable": variable,
+                "base_value": base_value,
+                "test_value": test_value,
+                "pct_change": pct_change * 100,
+                "npv": financials.npv,
+                "irr": financials.irr,
+                "lcoe": financials.lcoe,
             })
 
-        return {
-            "scenario": price_scenario,
-            "forecasts": forecasts,
-            "total_revenue": sum(f["revenue"] for f in forecasts),
-            "total_energy_mwh": sum(f["energy_mwh"] for f in forecasts),
-        }
+        return results
 
-    async def shutdown(self) -> None:
-        """Shutdown financial analyzer."""
-        logger.info("Shutting down Financial Analyzer")
+    def calculate_min_ppa_price(
+        self,
+        parcel: Parcel,
+        target_irr: float = 0.10,
+        grid_connection: GridConnection = None,
+    ) -> float:
+        """Calculate minimum PPA price to achieve target IRR."""
+        low = 0.01
+        high = 0.20
+
+        for _ in range(50):
+            mid = (low + high) / 2
+
+            assumptions = FinancialAssumptions(ppa_price_kwh=mid)
+            financials = self.analyze(parcel, grid_connection, assumptions=assumptions)
+
+            if abs(financials.irr - target_irr) < 0.001:
+                return mid
+
+            if financials.irr < target_irr:
+                low = mid
+            else:
+                high = mid
+
+        return (low + high) / 2

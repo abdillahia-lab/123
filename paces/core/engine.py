@@ -1,698 +1,472 @@
 """
-Paces Engine - Main orchestration for renewable energy platform.
+Paces Engine - Main orchestration for renewable energy site development platform.
 
-Coordinates all modules including solar/wind analytics, forecasting,
-battery management, grid integration, and AI-driven insights.
+Coordinates all modules:
+- Parcel search and discovery
+- AI-powered site analysis
+- Permitting prediction
+- Grid interconnection analysis
+- Environmental screening
+- Financial modeling
+- Report generation
 """
 
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timedelta
-from pathlib import Path
-from typing import Callable, Optional
+from datetime import datetime
+from typing import Optional, Callable
 from uuid import uuid4
 
 from loguru import logger
 
-from paces.core.config import PacesConfig, load_paces_config
+from paces.core.config import PacesConfig, load_config
 from paces.core.types import (
-    AlertSeverity,
-    Portfolio,
-    SolarFarm,
-    WindFarm,
-    BatterySystem,
-    GridConnection,
-    PowerForecast,
-    WeatherData,
-    EnergyReading,
-    CarbonMetrics,
-    FinancialMetrics,
-    MaintenanceEvent,
-    Defect,
+    Parcel,
+    Project,
+    Jurisdiction,
+    SiteScore,
+    FeasibilityReport,
+    ProjectType,
+    GeoPoint,
+    BoundingBox,
 )
+from paces.agents.site import SiteAnalysisAgent, SiteAnalysisConfig
+from paces.agents.permitting import PermittingAgent
+from paces.agents.grid import GridAgent
+from paces.agents.environmental import EnvironmentalAgent
+from paces.agents.report import ReportAgent
+from paces.financial.analyzer import FinancialAnalyzer, FinancialAssumptions
 
 
 class PacesEngine:
     """
-    Main orchestration engine for Paces renewable energy platform.
+    Main orchestration engine for Paces platform.
 
-    Coordinates:
-    - Asset management (solar, wind, battery)
-    - AI-powered defect detection and analysis
-    - Energy production forecasting
-    - Weather integration
-    - Grid interaction
-    - Predictive maintenance
-    - Financial and carbon tracking
-    - Real-time monitoring and alerts
+    Provides:
+    - Parcel search and filtering
+    - Comprehensive site analysis
+    - AI-powered permitting prediction
+    - Grid interconnection assessment
+    - Environmental screening
+    - Financial modeling
+    - Report generation
+    - Project pipeline management
     """
 
     def __init__(self, config: Optional[PacesConfig] = None):
-        self.config = config or load_paces_config()
+        self.config = config or load_config()
         self.config.ensure_directories()
 
-        # Module references (lazy loaded)
-        self._solar_analyzer = None
-        self._wind_analyzer = None
-        self._battery_manager = None
-        self._forecast_engine = None
-        self._grid_manager = None
-        self._maintenance_engine = None
-        self._carbon_tracker = None
-        self._financial_analyzer = None
+        # Agents
+        self._site_agent: Optional[SiteAnalysisAgent] = None
+        self._permitting_agent: Optional[PermittingAgent] = None
+        self._grid_agent: Optional[GridAgent] = None
+        self._environmental_agent: Optional[EnvironmentalAgent] = None
+        self._report_agent: Optional[ReportAgent] = None
 
-        # Portfolio
-        self._portfolio: Optional[Portfolio] = None
+        # Analyzers
+        self._financial_analyzer: Optional[FinancialAnalyzer] = None
+
+        # Data stores (in production, would be database)
+        self._parcels: dict[str, Parcel] = {}
+        self._projects: dict[str, Project] = {}
+        self._jurisdictions: dict[str, Jurisdiction] = {}
 
         # State
-        self._running = False
         self._initialized = False
 
-        # Callbacks
-        self._on_alert: Optional[Callable] = None
-        self._on_forecast_update: Optional[Callable] = None
-        self._on_defect_detected: Optional[Callable] = None
-
-        # Metrics
-        self._stats = {
-            "total_inspections": 0,
-            "defects_detected": 0,
-            "forecasts_generated": 0,
-            "alerts_sent": 0,
-            "energy_monitored_mwh": 0.0,
-        }
-
-        logger.info("Paces Engine initialized")
-
-    # =========================================================================
-    # Initialization
-    # =========================================================================
+        logger.info("Paces Engine created")
 
     async def initialize(self) -> bool:
         """Initialize all engine components."""
-        logger.info("Initializing Paces Engine components...")
+        logger.info("Initializing Paces Engine...")
 
         try:
-            # Initialize modules based on config
-            init_tasks = []
+            # Initialize agents
+            self._site_agent = SiteAnalysisAgent()
+            self._permitting_agent = PermittingAgent()
+            self._grid_agent = GridAgent()
+            self._environmental_agent = EnvironmentalAgent()
+            self._report_agent = ReportAgent()
 
-            if self.config.solar.enabled:
-                init_tasks.append(self._init_solar_analyzer())
+            await asyncio.gather(
+                self._site_agent.initialize(),
+                self._permitting_agent.initialize(),
+                self._grid_agent.initialize(),
+                self._environmental_agent.initialize(),
+                self._report_agent.initialize(),
+            )
 
-            if self.config.wind.enabled:
-                init_tasks.append(self._init_wind_analyzer())
-
-            if self.config.battery.enabled:
-                init_tasks.append(self._init_battery_manager())
-
-            if self.config.forecasting.enabled:
-                init_tasks.append(self._init_forecast_engine())
-
-            if self.config.grid.enabled:
-                init_tasks.append(self._init_grid_manager())
-
-            if self.config.maintenance.enabled:
-                init_tasks.append(self._init_maintenance_engine())
-
-            if self.config.carbon.enabled:
-                init_tasks.append(self._init_carbon_tracker())
-
-            if self.config.financial.enabled:
-                init_tasks.append(self._init_financial_analyzer())
-
-            await asyncio.gather(*init_tasks)
+            # Initialize analyzers
+            self._financial_analyzer = FinancialAnalyzer()
 
             self._initialized = True
-            logger.info("Paces Engine initialization complete")
+            logger.info("Paces Engine initialized successfully")
             return True
 
         except Exception as e:
             logger.error(f"Engine initialization failed: {e}")
             return False
 
-    async def _init_solar_analyzer(self) -> None:
-        """Initialize solar analytics module."""
-        from paces.solar.analyzer import SolarAnalyzer
-        self._solar_analyzer = SolarAnalyzer(self.config)
-        await self._solar_analyzer.initialize()
-        logger.info("Solar Analyzer initialized")
-
-    async def _init_wind_analyzer(self) -> None:
-        """Initialize wind analytics module."""
-        from paces.wind.analyzer import WindAnalyzer
-        self._wind_analyzer = WindAnalyzer(self.config)
-        await self._wind_analyzer.initialize()
-        logger.info("Wind Analyzer initialized")
-
-    async def _init_battery_manager(self) -> None:
-        """Initialize battery management module."""
-        from paces.battery.manager import BatteryManager
-        self._battery_manager = BatteryManager(self.config)
-        await self._battery_manager.initialize()
-        logger.info("Battery Manager initialized")
-
-    async def _init_forecast_engine(self) -> None:
-        """Initialize forecasting engine."""
-        from paces.forecasting.engine import ForecastEngine
-        self._forecast_engine = ForecastEngine(self.config)
-        await self._forecast_engine.initialize()
-        logger.info("Forecast Engine initialized")
-
-    async def _init_grid_manager(self) -> None:
-        """Initialize grid integration module."""
-        from paces.grid.manager import GridManager
-        self._grid_manager = GridManager(self.config)
-        await self._grid_manager.initialize()
-        logger.info("Grid Manager initialized")
-
-    async def _init_maintenance_engine(self) -> None:
-        """Initialize predictive maintenance engine."""
-        from paces.maintenance.engine import MaintenanceEngine
-        self._maintenance_engine = MaintenanceEngine(self.config)
-        await self._maintenance_engine.initialize()
-        logger.info("Maintenance Engine initialized")
-
-    async def _init_carbon_tracker(self) -> None:
-        """Initialize carbon tracking module."""
-        from paces.carbon.tracker import CarbonTracker
-        self._carbon_tracker = CarbonTracker(self.config)
-        await self._carbon_tracker.initialize()
-        logger.info("Carbon Tracker initialized")
-
-    async def _init_financial_analyzer(self) -> None:
-        """Initialize financial analytics module."""
-        from paces.financial.analyzer import FinancialAnalyzer
-        self._financial_analyzer = FinancialAnalyzer(self.config)
-        await self._financial_analyzer.initialize()
-        logger.info("Financial Analyzer initialized")
-
     # =========================================================================
-    # Portfolio Management
+    # Parcel Operations
     # =========================================================================
 
-    def load_portfolio(self, portfolio: Portfolio) -> None:
-        """Load a renewable energy portfolio."""
-        self._portfolio = portfolio
-        logger.info(f"Portfolio loaded: {portfolio.name}")
-        logger.info(f"  Solar capacity: {portfolio.solar_capacity_mw:.2f} MW")
-        logger.info(f"  Wind capacity: {portfolio.wind_capacity_mw:.2f} MW")
-        logger.info(f"  Storage: {portfolio.storage_capacity_mwh:.2f} MWh")
-
-    def get_portfolio(self) -> Optional[Portfolio]:
-        """Get current portfolio."""
-        return self._portfolio
-
-    def get_portfolio_summary(self) -> dict:
-        """Get portfolio summary."""
-        if not self._portfolio:
-            return {}
-        return self._portfolio.get_summary()
-
-    # =========================================================================
-    # Solar Operations
-    # =========================================================================
-
-    async def analyze_solar_farm(
+    async def search_parcels(
         self,
-        farm: SolarFarm,
-        thermal_images: list = None,
-        rgb_images: list = None,
+        state: str = None,
+        county: str = None,
+        min_acreage: float = None,
+        max_acreage: float = None,
+        zoning_types: list[str] = None,
+        bounding_box: BoundingBox = None,
+        limit: int = 100,
+    ) -> list[Parcel]:
+        """
+        Search for parcels matching criteria.
+
+        Args:
+            state: Filter by state
+            county: Filter by county
+            min_acreage: Minimum acreage
+            max_acreage: Maximum acreage
+            zoning_types: Allowed zoning types
+            bounding_box: Geographic bounding box
+            limit: Maximum results
+
+        Returns:
+            List of matching parcels
+        """
+        logger.info(f"Searching parcels: state={state}, county={county}")
+
+        # In production, would query parcel database/API
+        # For now, return from in-memory store
+        results = []
+
+        for parcel in self._parcels.values():
+            if state and parcel.state.upper() != state.upper():
+                continue
+            if county and parcel.county.upper() != county.upper():
+                continue
+            if min_acreage and parcel.acreage < min_acreage:
+                continue
+            if max_acreage and parcel.acreage > max_acreage:
+                continue
+            if zoning_types and parcel.zoning_type.value not in zoning_types:
+                continue
+            if bounding_box and parcel.centroid:
+                if not bounding_box.contains(parcel.centroid):
+                    continue
+
+            results.append(parcel)
+
+            if len(results) >= limit:
+                break
+
+        logger.info(f"Found {len(results)} parcels")
+        return results
+
+    def add_parcel(self, parcel: Parcel) -> Parcel:
+        """Add a parcel to the database."""
+        self._parcels[parcel.id] = parcel
+        return parcel
+
+    def get_parcel(self, parcel_id: str) -> Optional[Parcel]:
+        """Get a parcel by ID."""
+        return self._parcels.get(parcel_id)
+
+    # =========================================================================
+    # Site Analysis
+    # =========================================================================
+
+    async def analyze_site(
+        self,
+        parcel: Parcel,
+        project_type: ProjectType = ProjectType.UTILITY_SOLAR,
+        target_capacity_mw: float = 5.0,
+        jurisdiction: Jurisdiction = None,
+    ) -> FeasibilityReport:
+        """
+        Perform comprehensive site analysis.
+
+        Args:
+            parcel: Parcel to analyze
+            project_type: Type of project
+            target_capacity_mw: Target capacity
+            jurisdiction: Optional jurisdiction data
+
+        Returns:
+            Complete FeasibilityReport
+        """
+        if not self._initialized:
+            raise RuntimeError("Engine not initialized")
+
+        logger.info(f"Analyzing site: {parcel.id}")
+
+        config = SiteAnalysisConfig(
+            project_type=project_type,
+            target_capacity_mw=target_capacity_mw,
+        )
+
+        result = await self._site_agent.execute(
+            parcel=parcel,
+            jurisdiction=jurisdiction,
+            config=config,
+        )
+
+        if not result.success:
+            logger.error(f"Site analysis failed: {result.error}")
+            return None
+
+        # Extract feasibility report from result
+        return FeasibilityReport(
+            parcel_id=parcel.id,
+            parcel=parcel,
+            site_score=SiteScore(**result.data.get("site_score", {})) if result.data.get("site_score") else None,
+            overall_viability=result.data.get("feasibility", {}).get("overall_viability", "unknown"),
+            executive_summary=result.analysis,
+            proceed_recommendation=result.data.get("site_score", {}).get("proceed_recommendation", "unknown"),
+            key_risks=result.risks,
+            next_steps=result.recommendations[:5],
+        )
+
+    async def analyze_multiple_sites(
+        self,
+        parcels: list[Parcel],
+        project_type: ProjectType = ProjectType.UTILITY_SOLAR,
+        target_capacity_mw: float = 5.0,
+    ) -> list[FeasibilityReport]:
+        """
+        Analyze multiple sites and rank them.
+
+        Args:
+            parcels: List of parcels to analyze
+            project_type: Type of project
+            target_capacity_mw: Target capacity
+
+        Returns:
+            List of FeasibilityReports sorted by score
+        """
+        logger.info(f"Analyzing {len(parcels)} sites")
+
+        reports = []
+        for parcel in parcels:
+            try:
+                report = await self.analyze_site(
+                    parcel,
+                    project_type=project_type,
+                    target_capacity_mw=target_capacity_mw,
+                )
+                if report:
+                    reports.append(report)
+            except Exception as e:
+                logger.warning(f"Failed to analyze parcel {parcel.id}: {e}")
+
+        # Sort by score
+        reports.sort(
+            key=lambda r: r.site_score.overall_score if r.site_score else 0,
+            reverse=True,
+        )
+
+        return reports
+
+    # =========================================================================
+    # Permitting
+    # =========================================================================
+
+    async def analyze_permitting(
+        self,
+        parcel: Parcel,
+        jurisdiction: Jurisdiction = None,
+        ordinance_text: str = None,
+        capacity_mw: float = 5.0,
     ) -> dict:
         """
-        Comprehensive solar farm analysis.
+        Analyze permitting requirements for a parcel.
 
-        Includes:
-        - Panel defect detection
-        - Hotspot identification
-        - Soiling analysis
-        - Performance assessment
-        - AI-generated recommendations
+        Uses LLM to parse zoning ordinances and predict permitting risk.
         """
-        if not self._solar_analyzer:
-            raise RuntimeError("Solar analyzer not initialized")
+        if not self._initialized:
+            raise RuntimeError("Engine not initialized")
 
-        result = await self._solar_analyzer.analyze_farm(
-            farm,
-            thermal_images=thermal_images,
-            rgb_images=rgb_images,
+        result = await self._permitting_agent.execute(
+            parcel=parcel,
+            jurisdiction=jurisdiction,
+            ordinance_text=ordinance_text or "",
+            capacity_mw=capacity_mw,
         )
 
-        self._stats["total_inspections"] += 1
-        self._stats["defects_detected"] += len(result.get("defects", []))
+        return result.data if result.success else {"error": result.error}
 
-        # Trigger alerts for critical defects
-        for defect in result.get("defects", []):
-            if defect.severity.value >= AlertSeverity.HIGH.value:
-                await self._send_alert(defect)
+    def add_jurisdiction(self, jurisdiction: Jurisdiction) -> Jurisdiction:
+        """Add a jurisdiction to the database."""
+        self._jurisdictions[jurisdiction.id] = jurisdiction
+        return jurisdiction
 
-        return result
-
-    async def get_solar_performance(
-        self,
-        farm_id: str,
-        start_time: datetime = None,
-        end_time: datetime = None,
-    ) -> dict:
-        """Get solar farm performance metrics."""
-        if not self._solar_analyzer:
-            raise RuntimeError("Solar analyzer not initialized")
-
-        return await self._solar_analyzer.get_performance(
-            farm_id,
-            start_time or datetime.now() - timedelta(days=1),
-            end_time or datetime.now(),
-        )
+    def get_jurisdiction(self, jurisdiction_id: str) -> Optional[Jurisdiction]:
+        """Get a jurisdiction by ID."""
+        return self._jurisdictions.get(jurisdiction_id)
 
     # =========================================================================
-    # Wind Operations
+    # Grid Analysis
     # =========================================================================
 
-    async def analyze_wind_turbine(
+    async def analyze_grid(
         self,
-        turbine,
-        blade_images: list = None,
-        vibration_data: list = None,
+        parcel: Parcel,
+        capacity_mw: float = 5.0,
     ) -> dict:
         """
-        Comprehensive wind turbine analysis.
+        Analyze grid interconnection for a parcel.
 
-        Includes:
-        - Blade defect detection
-        - Vibration analysis
-        - Yaw/pitch assessment
-        - Performance evaluation
+        Returns substation proximity, capacity, queue analysis, and cost estimates.
         """
-        if not self._wind_analyzer:
-            raise RuntimeError("Wind analyzer not initialized")
+        if not self._initialized:
+            raise RuntimeError("Engine not initialized")
 
-        return await self._wind_analyzer.analyze_turbine(
-            turbine,
-            blade_images=blade_images,
-            vibration_data=vibration_data,
+        result = await self._grid_agent.execute(
+            parcel=parcel,
+            project_capacity_mw=capacity_mw,
         )
 
-    async def get_wind_performance(
+        return result.data if result.success else {"error": result.error}
+
+    # =========================================================================
+    # Environmental
+    # =========================================================================
+
+    async def screen_environmental(
         self,
-        farm_id: str,
-        start_time: datetime = None,
-        end_time: datetime = None,
+        parcel: Parcel,
+        detailed: bool = False,
     ) -> dict:
-        """Get wind farm performance metrics."""
-        if not self._wind_analyzer:
-            raise RuntimeError("Wind analyzer not initialized")
+        """
+        Screen parcel for environmental constraints.
 
-        return await self._wind_analyzer.get_performance(
-            farm_id,
-            start_time or datetime.now() - timedelta(days=1),
-            end_time or datetime.now(),
+        Checks wetlands, flood zones, endangered species, cultural resources.
+        """
+        if not self._initialized:
+            raise RuntimeError("Engine not initialized")
+
+        result = await self._environmental_agent.execute(
+            parcel=parcel,
+            detailed_analysis=detailed,
         )
 
+        return result.data if result.success else {"error": result.error}
+
     # =========================================================================
-    # Battery Operations
+    # Financial
     # =========================================================================
 
-    async def get_battery_status(self, system_id: str) -> dict:
-        """Get battery system status."""
-        if not self._battery_manager:
-            raise RuntimeError("Battery manager not initialized")
-
-        return await self._battery_manager.get_status(system_id)
-
-    async def optimize_battery_dispatch(
+    def analyze_financials(
         self,
-        system_id: str,
-        horizon_hours: int = 24,
+        parcel: Parcel,
+        assumptions: FinancialAssumptions = None,
     ) -> dict:
-        """Optimize battery dispatch schedule."""
-        if not self._battery_manager:
-            raise RuntimeError("Battery manager not initialized")
+        """
+        Perform financial analysis for a solar project on the parcel.
 
-        # Get forecasts for optimization
-        if self._forecast_engine:
-            price_forecast = await self._forecast_engine.forecast_prices(
-                hours=horizon_hours
-            )
-            load_forecast = await self._forecast_engine.forecast_load(
-                hours=horizon_hours
-            )
-        else:
-            price_forecast = None
-            load_forecast = None
-
-        return await self._battery_manager.optimize_dispatch(
-            system_id,
-            price_forecast=price_forecast,
-            load_forecast=load_forecast,
-            horizon_hours=horizon_hours,
-        )
-
-    # =========================================================================
-    # Forecasting
-    # =========================================================================
-
-    async def forecast_solar_production(
-        self,
-        farm_id: str,
-        hours: int = 48,
-    ) -> PowerForecast:
-        """Forecast solar production."""
-        if not self._forecast_engine:
-            raise RuntimeError("Forecast engine not initialized")
-
-        forecast = await self._forecast_engine.forecast_solar(farm_id, hours)
-        self._stats["forecasts_generated"] += 1
-        return forecast
-
-    async def forecast_wind_production(
-        self,
-        farm_id: str,
-        hours: int = 48,
-    ) -> PowerForecast:
-        """Forecast wind production."""
-        if not self._forecast_engine:
-            raise RuntimeError("Forecast engine not initialized")
-
-        forecast = await self._forecast_engine.forecast_wind(farm_id, hours)
-        self._stats["forecasts_generated"] += 1
-        return forecast
-
-    async def forecast_portfolio_production(
-        self,
-        hours: int = 48,
-    ) -> dict:
-        """Forecast total portfolio production."""
-        if not self._forecast_engine or not self._portfolio:
-            raise RuntimeError("Forecast engine or portfolio not available")
-
-        solar_forecasts = []
-        for farm in self._portfolio.solar_farms:
-            forecast = await self._forecast_engine.forecast_solar(farm.id, hours)
-            solar_forecasts.append(forecast)
-
-        wind_forecasts = []
-        for farm in self._portfolio.wind_farms:
-            forecast = await self._forecast_engine.forecast_wind(farm.id, hours)
-            wind_forecasts.append(forecast)
-
-        return {
-            "solar_forecasts": solar_forecasts,
-            "wind_forecasts": wind_forecasts,
-            "total_forecast": self._aggregate_forecasts(
-                solar_forecasts + wind_forecasts
-            ),
-        }
-
-    def _aggregate_forecasts(self, forecasts: list[PowerForecast]) -> dict:
-        """Aggregate multiple forecasts."""
-        if not forecasts:
-            return {}
-
-        timestamps = forecasts[0].timestamps
-        total_power = [0.0] * len(timestamps)
-
-        for forecast in forecasts:
-            for i, power in enumerate(forecast.power_kw):
-                if i < len(total_power):
-                    total_power[i] += power
-
-        return {
-            "timestamps": timestamps,
-            "power_kw": total_power,
-            "total_energy_kwh": sum(total_power),
-        }
-
-    async def get_weather_forecast(
-        self,
-        location,
-        days: int = 7,
-    ) -> list[WeatherData]:
-        """Get weather forecast for a location."""
-        if not self._forecast_engine:
-            raise RuntimeError("Forecast engine not initialized")
-
-        return await self._forecast_engine.get_weather(location, days)
-
-    # =========================================================================
-    # Grid Integration
-    # =========================================================================
-
-    async def get_grid_status(self, connection_id: str) -> dict:
-        """Get grid connection status."""
-        if not self._grid_manager:
-            raise RuntimeError("Grid manager not initialized")
-
-        return await self._grid_manager.get_status(connection_id)
-
-    async def set_power_setpoint(
-        self,
-        connection_id: str,
-        power_mw: float,
-    ) -> bool:
-        """Set power export/import setpoint."""
-        if not self._grid_manager:
-            raise RuntimeError("Grid manager not initialized")
-
-        return await self._grid_manager.set_power_setpoint(connection_id, power_mw)
-
-    async def respond_to_curtailment(
-        self,
-        connection_id: str,
-        curtailment_mw: float,
-    ) -> bool:
-        """Respond to grid curtailment signal."""
-        if not self._grid_manager:
-            raise RuntimeError("Grid manager not initialized")
-
-        return await self._grid_manager.handle_curtailment(
-            connection_id,
-            curtailment_mw,
-        )
-
-    # =========================================================================
-    # Predictive Maintenance
-    # =========================================================================
-
-    async def predict_failures(
-        self,
-        asset_id: str,
-        horizon_days: int = 30,
-    ) -> list[dict]:
-        """Predict potential failures for an asset."""
-        if not self._maintenance_engine:
-            raise RuntimeError("Maintenance engine not initialized")
-
-        return await self._maintenance_engine.predict_failures(
-            asset_id,
-            horizon_days,
-        )
-
-    async def get_maintenance_schedule(
-        self,
-        asset_ids: list[str] = None,
-    ) -> list[MaintenanceEvent]:
-        """Get optimized maintenance schedule."""
-        if not self._maintenance_engine:
-            raise RuntimeError("Maintenance engine not initialized")
-
-        return await self._maintenance_engine.get_schedule(asset_ids)
-
-    async def schedule_maintenance(
-        self,
-        event: MaintenanceEvent,
-    ) -> bool:
-        """Schedule a maintenance event."""
-        if not self._maintenance_engine:
-            raise RuntimeError("Maintenance engine not initialized")
-
-        return await self._maintenance_engine.schedule(event)
-
-    # =========================================================================
-    # Carbon & Financial
-    # =========================================================================
-
-    async def get_carbon_metrics(
-        self,
-        asset_id: str = None,
-        period: str = "daily",
-    ) -> CarbonMetrics:
-        """Get carbon metrics."""
-        if not self._carbon_tracker:
-            raise RuntimeError("Carbon tracker not initialized")
-
-        return await self._carbon_tracker.get_metrics(asset_id, period)
-
-    async def get_financial_metrics(
-        self,
-        asset_id: str = None,
-        period: str = "monthly",
-    ) -> FinancialMetrics:
-        """Get financial metrics."""
+        Returns CAPEX, OPEX, NPV, IRR, LCOE, and payback period.
+        """
         if not self._financial_analyzer:
             raise RuntimeError("Financial analyzer not initialized")
 
-        return await self._financial_analyzer.get_metrics(asset_id, period)
+        financials = self._financial_analyzer.analyze(
+            parcel=parcel,
+            assumptions=assumptions,
+        )
 
-    async def calculate_roi(
+        return financials.to_dict()
+
+    def calculate_min_ppa(
         self,
-        asset_id: str,
-        years: int = 25,
-    ) -> dict:
-        """Calculate ROI for an asset."""
-        if not self._financial_analyzer:
-            raise RuntimeError("Financial analyzer not initialized")
-
-        return await self._financial_analyzer.calculate_roi(asset_id, years)
-
-    # =========================================================================
-    # Real-time Monitoring
-    # =========================================================================
-
-    async def start_monitoring(self) -> None:
-        """Start real-time monitoring loop."""
-        if self._running:
-            logger.warning("Monitoring already running")
-            return
-
-        self._running = True
-        logger.info("Starting real-time monitoring")
-
-        asyncio.create_task(self._monitoring_loop())
-
-    async def stop_monitoring(self) -> None:
-        """Stop real-time monitoring."""
-        self._running = False
-        logger.info("Monitoring stopped")
-
-    async def _monitoring_loop(self) -> None:
-        """Main monitoring loop."""
-        while self._running:
-            try:
-                # Update forecasts periodically
-                if self._forecast_engine:
-                    await self._update_forecasts()
-
-                # Check for anomalies
-                await self._check_anomalies()
-
-                # Update metrics
-                await self._update_metrics()
-
-                await asyncio.sleep(60)  # Check every minute
-
-            except Exception as e:
-                logger.error(f"Monitoring error: {e}")
-                await asyncio.sleep(10)
-
-    async def _update_forecasts(self) -> None:
-        """Update forecasts for all assets."""
-        if not self._portfolio:
-            return
-
-        for farm in self._portfolio.solar_farms:
-            try:
-                await self.forecast_solar_production(farm.id)
-            except Exception as e:
-                logger.warning(f"Solar forecast failed for {farm.id}: {e}")
-
-        for farm in self._portfolio.wind_farms:
-            try:
-                await self.forecast_wind_production(farm.id)
-            except Exception as e:
-                logger.warning(f"Wind forecast failed for {farm.id}: {e}")
-
-    async def _check_anomalies(self) -> None:
-        """Check for anomalies across all assets."""
-        # Implementation would check real-time data for anomalies
-        pass
-
-    async def _update_metrics(self) -> None:
-        """Update aggregated metrics."""
-        # Implementation would update dashboard metrics
-        pass
-
-    # =========================================================================
-    # Alerts
-    # =========================================================================
-
-    def set_alert_callback(self, callback: Callable) -> None:
-        """Set callback for alert notifications."""
-        self._on_alert = callback
-
-    async def _send_alert(self, defect: Defect) -> None:
-        """Send alert for a defect."""
-        self._stats["alerts_sent"] += 1
-
-        if self._on_alert:
-            await self._on_alert(defect)
-
-        logger.warning(
-            f"ALERT: {defect.defect_type.value} detected on {defect.asset_id} "
-            f"[{defect.severity.name}]"
+        parcel: Parcel,
+        target_irr: float = 0.10,
+    ) -> float:
+        """Calculate minimum PPA price to achieve target IRR."""
+        return self._financial_analyzer.calculate_min_ppa_price(
+            parcel=parcel,
+            target_irr=target_irr,
         )
 
     # =========================================================================
-    # Statistics & Health
+    # Reports
+    # =========================================================================
+
+    async def generate_report(
+        self,
+        feasibility: FeasibilityReport,
+        format: str = "markdown",
+    ) -> str:
+        """
+        Generate feasibility report.
+
+        Args:
+            feasibility: FeasibilityReport data
+            format: Output format (markdown, html)
+
+        Returns:
+            Generated report content
+        """
+        result = await self._report_agent.execute(
+            feasibility=feasibility,
+            output_format=format,
+        )
+
+        return result.data.get("report", "") if result.success else ""
+
+    # =========================================================================
+    # Projects
+    # =========================================================================
+
+    def create_project(
+        self,
+        name: str,
+        parcel_ids: list[str],
+        project_type: ProjectType = ProjectType.UTILITY_SOLAR,
+        capacity_mw: float = 5.0,
+    ) -> Project:
+        """Create a new project."""
+        project = Project(
+            name=name,
+            parcel_ids=parcel_ids,
+            project_type=project_type,
+            capacity_mw_dc=capacity_mw,
+        )
+        self._projects[project.id] = project
+        return project
+
+    def get_project(self, project_id: str) -> Optional[Project]:
+        """Get a project by ID."""
+        return self._projects.get(project_id)
+
+    def list_projects(self) -> list[Project]:
+        """List all projects."""
+        return list(self._projects.values())
+
+    # =========================================================================
+    # Statistics
     # =========================================================================
 
     def get_stats(self) -> dict:
         """Get engine statistics."""
         return {
-            **self._stats,
-            "running": self._running,
             "initialized": self._initialized,
-            "portfolio_loaded": self._portfolio is not None,
+            "parcels_count": len(self._parcels),
+            "projects_count": len(self._projects),
+            "jurisdictions_count": len(self._jurisdictions),
         }
 
     async def health_check(self) -> dict:
-        """Perform system health check."""
-        health = {
-            "status": "healthy",
+        """Perform health check."""
+        return {
+            "status": "healthy" if self._initialized else "not_initialized",
             "timestamp": datetime.now().isoformat(),
-            "modules": {},
         }
 
-        if self._solar_analyzer:
-            health["modules"]["solar"] = "ok"
-        if self._wind_analyzer:
-            health["modules"]["wind"] = "ok"
-        if self._battery_manager:
-            health["modules"]["battery"] = "ok"
-        if self._forecast_engine:
-            health["modules"]["forecasting"] = "ok"
-        if self._grid_manager:
-            health["modules"]["grid"] = "ok"
-        if self._maintenance_engine:
-            health["modules"]["maintenance"] = "ok"
-        if self._carbon_tracker:
-            health["modules"]["carbon"] = "ok"
-        if self._financial_analyzer:
-            health["modules"]["financial"] = "ok"
-
-        return health
-
-    # =========================================================================
-    # Shutdown
-    # =========================================================================
-
     async def shutdown(self) -> None:
-        """Shutdown engine and release resources."""
-        logger.info("Shutting down Paces Engine...")
-
-        self._running = False
-
-        # Shutdown modules
-        if self._solar_analyzer:
-            await self._solar_analyzer.shutdown()
-        if self._wind_analyzer:
-            await self._wind_analyzer.shutdown()
-        if self._battery_manager:
-            await self._battery_manager.shutdown()
-        if self._forecast_engine:
-            await self._forecast_engine.shutdown()
-        if self._grid_manager:
-            await self._grid_manager.shutdown()
-        if self._maintenance_engine:
-            await self._maintenance_engine.shutdown()
-
-        logger.info("Paces Engine shutdown complete")
+        """Shutdown engine."""
+        logger.info("Shutting down Paces Engine")
+        self._initialized = False
