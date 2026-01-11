@@ -263,8 +263,9 @@ Respond in JSON format:
             for swarm_name in plan.swarms_to_execute:
                 if swarm_name in self._swarms:
                     swarm = self._swarms[swarm_name]
+                    # Call execute() directly to get SwarmResult
                     tasks[swarm_name] = asyncio.create_task(
-                        swarm.run(request)
+                        swarm.execute({"parcel": request.parcel})
                     )
 
             for swarm_name, task in tasks.items():
@@ -294,7 +295,7 @@ Respond in JSON format:
             for swarm_name in plan.swarms_to_execute:
                 if swarm_name in self._swarms:
                     try:
-                        result = await self._swarms[swarm_name].run(request)
+                        result = await self._swarms[swarm_name].execute({"parcel": request.parcel})
                         results[swarm_name] = result
                     except Exception as e:
                         logger.exception(f"Swarm {swarm_name} failed: {e}")
@@ -311,7 +312,7 @@ Respond in JSON format:
             for swarm_name in critical:
                 if swarm_name in self._swarms and swarm_name in plan.swarms_to_execute:
                     try:
-                        result = await self._swarms[swarm_name].run(request)
+                        result = await self._swarms[swarm_name].execute({"parcel": request.parcel})
                         results[swarm_name] = result
                     except Exception as e:
                         results[swarm_name] = SwarmResult(
@@ -324,7 +325,7 @@ Respond in JSON format:
             for swarm_name in secondary:
                 if swarm_name in self._swarms and swarm_name in plan.swarms_to_execute:
                     tasks[swarm_name] = asyncio.create_task(
-                        self._swarms[swarm_name].run(request)
+                        self._swarms[swarm_name].execute({"parcel": request.parcel})
                     )
 
             for swarm_name, task in tasks.items():

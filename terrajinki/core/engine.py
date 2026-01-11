@@ -126,17 +126,14 @@ class TerraJinkiEngine:
         )
 
         orchestrator = self._get_orchestrator()
-        result = await orchestrator.run(request)
 
-        if result.success:
-            analysis = result.output
-            if isinstance(analysis, dict):
-                # Convert dict to SiteAnalysis if needed
-                pass
-            self._analyses[result.agent_id] = analysis
+        # Call execute directly to get SiteAnalysis (not run() which wraps in AgentResult)
+        try:
+            analysis = await orchestrator.execute(request)
+            self._analyses[analysis.id] = analysis
             return analysis
-        else:
-            raise Exception(f"Analysis failed: {result.error_message}")
+        except Exception as e:
+            raise Exception(f"Analysis failed: {str(e)}")
 
     async def analyze_site_streaming(
         self,

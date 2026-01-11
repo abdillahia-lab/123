@@ -403,20 +403,27 @@ class BaseAgent(ABC, Generic[TInput, TOutput]):
         """
         config = self.context.config.agents
 
+        # Extract numeric score (handle both float and SiteScore)
+        score = result.score
+        if hasattr(score, 'overall_score'):
+            score = score.overall_score
+        elif not isinstance(score, (int, float)):
+            score = 50.0  # Default if score type is unknown
+
         # Check for fatal flaws
-        if result.score < config.fatal_flaw_score_threshold:
+        if score < config.fatal_flaw_score_threshold:
             return ApprovalGate(
                 name="fatal_flaw_review",
-                description=f"Score {result.score:.1f} below threshold {config.fatal_flaw_score_threshold}",
+                description=f"Score {score:.1f} below threshold {config.fatal_flaw_score_threshold}",
                 level=ApprovalLevel.APPROVE,
                 score_threshold=config.fatal_flaw_score_threshold,
             )
 
         # Check for high-value opportunities
-        if result.score > config.high_value_score_threshold:
+        if score > config.high_value_score_threshold:
             return ApprovalGate(
                 name="high_value_review",
-                description=f"High-value site detected (score {result.score:.1f})",
+                description=f"High-value site detected (score {score:.1f})",
                 level=ApprovalLevel.NOTIFY,
                 score_threshold=config.high_value_score_threshold,
             )
