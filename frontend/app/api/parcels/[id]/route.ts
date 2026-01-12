@@ -1,103 +1,64 @@
-import { NextResponse } from 'next/server';
-
-// Demo parcels data for Virginia
-const demoParcels: Record<string, any> = {
-  'va-001': {
-    id: 'va-001',
-    apn: 'VA-LOUD-001-2024',
-    state: 'VA',
-    county: 'Loudoun',
-    municipality: 'Leesburg',
-    address: '15200 James Monroe Hwy',
-    acreage: 200,
-    latitude: 39.1076,
-    longitude: -77.5636,
-    zoning_type: 'Agricultural',
-    solar_permission: 'By-right',
-    owner_name: 'Blue Ridge Farms LLC',
-    nearest_substation_mi: 2.3,
-    created_at: '2024-01-10T10:00:00Z',
-  },
-  'va-002': {
-    id: 'va-002',
-    apn: 'VA-FAUQ-002-2024',
-    state: 'VA',
-    county: 'Fauquier',
-    municipality: 'Warrenton',
-    address: '8500 Lee Highway',
-    acreage: 350,
-    latitude: 38.7135,
-    longitude: -77.7964,
-    zoning_type: 'Rural Agricultural',
-    solar_permission: 'Conditional Use',
-    owner_name: 'Piedmont Holdings',
-    nearest_substation_mi: 4.1,
-    created_at: '2024-01-15T14:30:00Z',
-  },
-  'va-003': {
-    id: 'va-003',
-    apn: 'VA-CULP-003-2024',
-    state: 'VA',
-    county: 'Culpeper',
-    municipality: 'Culpeper',
-    address: '12000 Rixeyville Road',
-    acreage: 180,
-    latitude: 38.4729,
-    longitude: -77.9967,
-    zoning_type: 'Agricultural',
-    solar_permission: 'By-right',
-    owner_name: 'Mountain View Estates',
-    nearest_substation_mi: 3.2,
-    created_at: '2024-01-20T09:15:00Z',
-  },
-  'va-004': {
-    id: 'va-004',
-    apn: 'VA-SPOT-004-2024',
-    state: 'VA',
-    county: 'Spotsylvania',
-    municipality: 'Fredericksburg',
-    address: '5500 Courthouse Road',
-    acreage: 275,
-    latitude: 38.2009,
-    longitude: -77.5164,
-    zoning_type: 'Agricultural-2',
-    solar_permission: 'Special Exception',
-    owner_name: 'Colonial Land Trust',
-    nearest_substation_mi: 1.8,
-    created_at: '2024-01-25T11:45:00Z',
-  },
-  'va-005': {
-    id: 'va-005',
-    apn: 'VA-ORAN-005-2024',
-    state: 'VA',
-    county: 'Orange',
-    municipality: 'Orange',
-    address: '3200 Constitution Highway',
-    acreage: 420,
-    latitude: 38.2454,
-    longitude: -78.1108,
-    zoning_type: 'Rural Agricultural',
-    solar_permission: 'By-right',
-    owner_name: 'Rapidan Energy Partners',
-    nearest_substation_mi: 5.5,
-    created_at: '2024-02-01T16:00:00Z',
-  },
-};
+import { NextRequest, NextResponse } from 'next/server';
+import { getParcelById } from '@/lib/us-parcels-data';
 
 export async function GET(
-  request: Request,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-
-  const parcel = demoParcels[id];
+  const parcel = getParcelById(id);
 
   if (!parcel) {
     return NextResponse.json(
-      { detail: 'Parcel not found' },
+      { error: 'Parcel not found', id },
       { status: 404 }
     );
   }
 
-  return NextResponse.json(parcel);
+  // Seeded random for consistent computed values
+  let seed = id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  const rng = () => {
+    const x = Math.sin(seed++) * 10000;
+    return x - Math.floor(x);
+  };
+
+  // Return detailed parcel info with computed fields
+  return NextResponse.json({
+    ...parcel,
+    // Additional computed fields for detail view
+    details: {
+      solar: {
+        capacity_mw: parcel.solar_capacity_mw,
+        annual_production_mwh: Math.round(parcel.solar_capacity_mw * parcel.solar_ghi * 365 * 0.2),
+        capacity_factor: Math.round((parcel.solar_ghi / 6.5) * 25 * 10) / 10,
+        estimated_revenue: Math.round(parcel.solar_capacity_mw * parcel.solar_ghi * 365 * 0.2 * 45),
+      },
+      wind: {
+        capacity_mw: parcel.wind_capacity_mw,
+        annual_production_mwh: Math.round(parcel.wind_capacity_mw * parcel.wind_speed * 365 * 0.35),
+        capacity_factor: Math.round((parcel.wind_speed / 8.5) * 35 * 10) / 10,
+        estimated_revenue: Math.round(parcel.wind_capacity_mw * parcel.wind_speed * 365 * 0.35 * 40),
+      },
+      financial: {
+        land_cost: parcel.acreage * parcel.estimated_land_cost_per_acre,
+        development_cost: parcel.estimated_development_cost,
+        total_project_cost: parcel.acreage * parcel.estimated_land_cost_per_acre + parcel.estimated_development_cost,
+        itc_value: Math.round(parcel.estimated_development_cost * 0.30),
+        estimated_lcoe: Math.round((25 + rng() * 15) * 10) / 10,
+        payback_years: Math.round((5 + rng() * 5) * 10) / 10,
+      },
+      grid: {
+        nearest_substation_mi: parcel.nearest_substation_mi,
+        transmission_voltage_kv: parcel.transmission_voltage_kv,
+        estimated_interconnection_cost: Math.round(parcel.nearest_substation_mi * 150000 + parcel.solar_capacity_mw * 50000),
+        queue_position_estimate: Math.floor(rng() * 300) + 50,
+      },
+      environmental: {
+        wetlands_percentage: Math.round(rng() * 10),
+        flood_zone: ['Zone X', 'Zone X', 'Zone X', 'Zone B', 'Zone A'][Math.floor(rng() * 5)],
+        endangered_species_risk: ['None', 'None', 'Low', 'Low', 'Moderate'][Math.floor(rng() * 5)],
+        cultural_resources: ['None', 'None', 'None', 'Low', 'Moderate'][Math.floor(rng() * 5)],
+      }
+    }
+  });
 }

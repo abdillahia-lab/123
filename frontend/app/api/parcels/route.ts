@@ -1,125 +1,88 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { US_PARCELS, searchParcels, getTotalStatistics, getStateStatistics } from '@/lib/us-parcels-data';
 
-// Demo parcels data for Virginia
-const demoParcels = [
-  {
-    id: 'va-001',
-    apn: 'VA-LOUD-001-2024',
-    state: 'VA',
-    county: 'Loudoun',
-    municipality: 'Leesburg',
-    address: '15200 James Monroe Hwy',
-    acreage: 200,
-    latitude: 39.1076,
-    longitude: -77.5636,
-    zoning_type: 'Agricultural',
-    solar_permission: 'By-right',
-    owner_name: 'Blue Ridge Farms LLC',
-    nearest_substation_mi: 2.3,
-    score: 78,
-    viability: 'good',
-    created_at: '2024-01-10T10:00:00Z',
-  },
-  {
-    id: 'va-002',
-    apn: 'VA-FAUQ-002-2024',
-    state: 'VA',
-    county: 'Fauquier',
-    municipality: 'Warrenton',
-    address: '8500 Lee Highway',
-    acreage: 350,
-    latitude: 38.7135,
-    longitude: -77.7964,
-    zoning_type: 'Rural Agricultural',
-    solar_permission: 'Conditional Use',
-    owner_name: 'Piedmont Holdings',
-    nearest_substation_mi: 4.1,
-    score: 72,
-    viability: 'moderate',
-    created_at: '2024-01-15T14:30:00Z',
-  },
-  {
-    id: 'va-003',
-    apn: 'VA-CULP-003-2024',
-    state: 'VA',
-    county: 'Culpeper',
-    municipality: 'Culpeper',
-    address: '12000 Rixeyville Road',
-    acreage: 180,
-    latitude: 38.4729,
-    longitude: -77.9967,
-    zoning_type: 'Agricultural',
-    solar_permission: 'By-right',
-    owner_name: 'Mountain View Estates',
-    nearest_substation_mi: 3.2,
-    score: 85,
-    viability: 'good',
-    created_at: '2024-01-20T09:15:00Z',
-  },
-  {
-    id: 'va-004',
-    apn: 'VA-SPOT-004-2024',
-    state: 'VA',
-    county: 'Spotsylvania',
-    municipality: 'Fredericksburg',
-    address: '5500 Courthouse Road',
-    acreage: 275,
-    latitude: 38.2009,
-    longitude: -77.5164,
-    zoning_type: 'Agricultural-2',
-    solar_permission: 'Special Exception',
-    owner_name: 'Colonial Land Trust',
-    nearest_substation_mi: 1.8,
-    score: 68,
-    viability: 'moderate',
-    created_at: '2024-01-25T11:45:00Z',
-  },
-  {
-    id: 'va-005',
-    apn: 'VA-ORAN-005-2024',
-    state: 'VA',
-    county: 'Orange',
-    municipality: 'Orange',
-    address: '3200 Constitution Highway',
-    acreage: 420,
-    latitude: 38.2454,
-    longitude: -78.1108,
-    zoning_type: 'Rural Agricultural',
-    solar_permission: 'By-right',
-    owner_name: 'Rapidan Energy Partners',
-    nearest_substation_mi: 5.5,
-    score: 91,
-    viability: 'excellent',
-    created_at: '2024-02-01T16:00:00Z',
-  },
-];
+export async function GET(request: NextRequest) {
+  const { searchParams } = new URL(request.url);
 
-export async function GET() {
-  return NextResponse.json(demoParcels);
+  // Pagination
+  const page = parseInt(searchParams.get('page') || '1');
+  const limit = parseInt(searchParams.get('limit') || '100');
+  const offset = (page - 1) * limit;
+
+  // Filters
+  const states = searchParams.get('states')?.split(',').filter(Boolean);
+  const minAcreage = searchParams.get('minAcreage') ? parseInt(searchParams.get('minAcreage')!) : undefined;
+  const maxAcreage = searchParams.get('maxAcreage') ? parseInt(searchParams.get('maxAcreage')!) : undefined;
+  const minScore = searchParams.get('minScore') ? parseInt(searchParams.get('minScore')!) : undefined;
+  const maxScore = searchParams.get('maxScore') ? parseInt(searchParams.get('maxScore')!) : undefined;
+  const viability = searchParams.get('viability')?.split(',').filter(Boolean);
+  const permission = searchParams.get('permission')?.split(',').filter(Boolean);
+  const text = searchParams.get('q') || searchParams.get('search') || undefined;
+
+  // Apply filters
+  let filteredParcels = searchParcels({
+    states,
+    minAcreage,
+    maxAcreage,
+    minScore,
+    maxScore,
+    viability,
+    permission,
+    text
+  });
+
+  // Sort
+  const sortBy = searchParams.get('sortBy') || 'overall_score';
+  const sortOrder = searchParams.get('sortOrder') || 'desc';
+
+  filteredParcels.sort((a, b) => {
+    const aVal = (a as any)[sortBy] ?? 0;
+    const bVal = (b as any)[sortBy] ?? 0;
+    return sortOrder === 'desc' ? bVal - aVal : aVal - bVal;
+  });
+
+  // Paginate
+  const paginatedParcels = filteredParcels.slice(offset, offset + limit);
+
+  return NextResponse.json({
+    parcels: paginatedParcels,
+    pagination: {
+      page,
+      limit,
+      total: filteredParcels.length,
+      totalPages: Math.ceil(filteredParcels.length / limit),
+      hasMore: offset + limit < filteredParcels.length
+    },
+    meta: {
+      totalParcels: US_PARCELS.length,
+      filteredCount: filteredParcels.length
+    }
+  });
 }
 
 export async function POST(request: Request) {
   const body = await request.json();
 
-  // Create a new parcel with demo data
-  const newParcel = {
-    id: `parcel-${Date.now()}`,
-    apn: `VA-NEW-${Date.now().toString().slice(-6)}`,
-    state: body.state || 'VA',
-    county: body.county || 'Unknown',
-    municipality: body.municipality || '',
-    address: body.address || '',
-    acreage: body.acreage || 0,
-    latitude: body.latitude || 38.5,
-    longitude: body.longitude || -77.5,
-    zoning_type: body.zoning_type || 'Agricultural',
-    solar_permission: body.solar_permission || 'Unknown',
-    owner_name: body.owner_name || '',
-    nearest_substation_mi: body.nearest_substation_mi || 5.0,
-    score: Math.floor(Math.random() * 30) + 60,
-    viability: 'moderate',
-    created_at: new Date().toISOString(),
-  };
+  // Search with POST body for complex queries
+  const filteredParcels = searchParcels({
+    states: body.states,
+    minAcreage: body.minAcreage,
+    maxAcreage: body.maxAcreage,
+    minScore: body.minScore,
+    maxScore: body.maxScore,
+    viability: body.viability,
+    permission: body.permission,
+    minSolarGhi: body.minSolarGhi,
+    minWindSpeed: body.minWindSpeed,
+    text: body.query || body.text
+  });
 
-  return NextResponse.json(newParcel, { status: 201 });
+  const limit = body.limit || 100;
+  const offset = body.offset || 0;
+
+  return NextResponse.json({
+    parcels: filteredParcels.slice(offset, offset + limit),
+    total: filteredParcels.length,
+    returned: Math.min(limit, filteredParcels.length - offset)
+  });
 }
