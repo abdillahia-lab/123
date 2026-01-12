@@ -4,8 +4,9 @@
  * TypeScript client for interacting with the TerraJinki backend API.
  */
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-const WS_URL = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8000';
+// Use local API routes when no external API is configured (demo mode)
+const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
+const WS_URL = process.env.NEXT_PUBLIC_WS_URL || '';
 
 // =============================================================================
 // TYPES
@@ -102,7 +103,7 @@ class TerraJinkiClient {
 
   // Health
   async health() {
-    return this.fetch<{ status: string; version: string; timestamp: string }>('/health');
+    return this.fetch<{ status: string; version: string; timestamp: string }>('/api/health');
   }
 
   async stats() {
@@ -128,7 +129,7 @@ class TerraJinkiClient {
     owner_name?: string;
     nearest_substation_mi?: number;
   }): Promise<Parcel> {
-    return this.fetch<Parcel>('/parcels', {
+    return this.fetch<Parcel>('/api/parcels', {
       method: 'POST',
       body: JSON.stringify(data),
     });
@@ -163,7 +164,7 @@ class TerraJinkiClient {
     target_capacity_mw?: number;
     include_financial?: boolean;
   }): Promise<Analysis> {
-    return this.fetch<Analysis>('/analyze', {
+    return this.fetch<Analysis>('/api/analysis', {
       method: 'POST',
       body: JSON.stringify({
         parcel_id: parcelId,
