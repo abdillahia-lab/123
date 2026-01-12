@@ -99,10 +99,15 @@ class LLMClient:
     async def _get_anthropic_client(self):
         """Lazy load Anthropic client."""
         if self._anthropic_client is None:
+            # Check if API key is set and valid
+            api_key = self.config.llm.anthropic_api_key
+            if not api_key or api_key in ("", "your-api-key", "sk-ant-"):
+                logger.info("No valid Anthropic API key - using simulation mode")
+                return None
             try:
                 import anthropic
                 self._anthropic_client = anthropic.AsyncAnthropic(
-                    api_key=self.config.llm.anthropic_api_key
+                    api_key=api_key
                 )
             except ImportError:
                 logger.warning("Anthropic SDK not installed")
