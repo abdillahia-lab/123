@@ -10,7 +10,7 @@ export async function POST(request: Request) {
   // Simulate analysis time
   await delay(500);
 
-  // Generate realistic scores based on random seed
+  // Generate realistic scores based on parcel ID
   const seed = parcel_id.charCodeAt(parcel_id.length - 1);
   const permittingScore = 65 + (seed % 25);
   const gridScore = 60 + ((seed * 3) % 30);
@@ -25,62 +25,54 @@ export async function POST(request: Request) {
   );
 
   let viability = 'moderate';
-  let starRating = 3;
-  let recommendation = 'proceed_with_caution';
-
-  if (overallScore >= 80) {
-    viability = 'good';
-    starRating = 4;
-    recommendation = 'proceed';
-  } else if (overallScore >= 90) {
+  if (overallScore >= 85) {
     viability = 'excellent';
-    starRating = 5;
-    recommendation = 'proceed';
+  } else if (overallScore >= 70) {
+    viability = 'good';
   } else if (overallScore < 50) {
     viability = 'challenging';
-    starRating = 2;
-    recommendation = 'do_not_proceed';
   }
 
+  // Generate recommendations based on scores
+  const recommendations: string[] = [];
+  if (permittingScore < 75) {
+    recommendations.push('Contact county planning department for pre-application meeting');
+  }
+  if (gridScore < 70) {
+    recommendations.push('Request preliminary interconnection study from utility');
+  }
+  if (envScore < 80) {
+    recommendations.push('Conduct Phase 1 environmental site assessment');
+  }
+  recommendations.push('Engage landowner for lease term negotiations');
+  recommendations.push('Commission preliminary geotechnical survey');
+
+  // Generate fatal flaws (only for very low scores)
+  const fatal_flaws: string[] = [];
+  if (gridScore < 50) {
+    fatal_flaws.push('No viable grid interconnection point within 10 miles');
+  }
+  if (envScore < 45) {
+    fatal_flaws.push('Site overlaps with protected wetlands');
+  }
+
+  // Return flat structure matching AnalysisPanel expectations
   const analysis = {
     id: `analysis-${Date.now()}`,
     parcel_id,
     project_type,
+    status: 'completed',
+    overall_score: Math.round(overallScore * 10) / 10,
+    permitting_score: permittingScore,
+    grid_score: gridScore,
+    environmental_score: envScore,
+    land_score: landScore,
+    viability,
+    fatal_flaws,
+    recommendations,
+    duration_seconds: 0.5,
     requested_at: new Date().toISOString(),
     completed_at: new Date().toISOString(),
-    duration_seconds: 0.5,
-    score: {
-      overall_score: Math.round(overallScore * 10) / 10,
-      viability,
-      star_rating: starRating,
-      permitting_score: permittingScore,
-      grid_score: gridScore,
-      environmental_score: envScore,
-      land_score: landScore,
-      financial_score: 0,
-      confidence: 0.85,
-      data_completeness: 0.92,
-      fatal_flaws: [],
-      major_risks: overallScore < 70 ? ['Grid capacity constraints identified'] : [],
-      minor_risks: ['Conditional use permit required'],
-      opportunities: ['Strong solar resource', 'Nearby transmission infrastructure'],
-    },
-    proceed_recommendation: recommendation,
-    recommended_next_steps: [
-      'Contact county planning department',
-      'Request preliminary interconnection study',
-      'Conduct Phase 1 environmental assessment',
-      'Engage landowner for lease negotiations',
-    ],
-    requires_human_review: overallScore < 60 || overallScore > 90,
-    review_reasons: overallScore > 90 ? ['High-value opportunity detected'] : [],
-    agents_executed: ['permitting', 'grid', 'environmental', 'land'],
-    agent_durations: {
-      permitting: 0.12,
-      grid: 0.15,
-      environmental: 0.11,
-      land: 0.09,
-    },
   };
 
   return NextResponse.json(analysis);

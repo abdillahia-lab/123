@@ -73,7 +73,19 @@ export default function Home() {
       {/* Content */}
       <div className="flex-1 overflow-hidden">
         {view === 'dashboard' ? (
-          <Dashboard onSelectParcel={setSelectedParcelId} />
+          <div className="h-full flex">
+            <div className="flex-1 overflow-hidden">
+              <Dashboard onSelectParcel={setSelectedParcelId} />
+            </div>
+            {selectedParcelId && (
+              <div className="w-96 border-l border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+                <AnalysisPanel
+                  parcelId={selectedParcelId}
+                  onClose={() => setSelectedParcelId(null)}
+                />
+              </div>
+            )}
+          </div>
         ) : (
           <div className="h-full flex">
             <div className="flex-1">

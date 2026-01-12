@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 
 // Demo parcels data for Virginia
-const demoParcels = [
-  {
+const demoParcels: Record<string, any> = {
+  'va-001': {
     id: 'va-001',
     apn: 'VA-LOUD-001-2024',
     state: 'VA',
@@ -16,11 +16,9 @@ const demoParcels = [
     solar_permission: 'By-right',
     owner_name: 'Blue Ridge Farms LLC',
     nearest_substation_mi: 2.3,
-    score: 78,
-    viability: 'good',
     created_at: '2024-01-10T10:00:00Z',
   },
-  {
+  'va-002': {
     id: 'va-002',
     apn: 'VA-FAUQ-002-2024',
     state: 'VA',
@@ -34,11 +32,9 @@ const demoParcels = [
     solar_permission: 'Conditional Use',
     owner_name: 'Piedmont Holdings',
     nearest_substation_mi: 4.1,
-    score: 72,
-    viability: 'moderate',
     created_at: '2024-01-15T14:30:00Z',
   },
-  {
+  'va-003': {
     id: 'va-003',
     apn: 'VA-CULP-003-2024',
     state: 'VA',
@@ -52,11 +48,9 @@ const demoParcels = [
     solar_permission: 'By-right',
     owner_name: 'Mountain View Estates',
     nearest_substation_mi: 3.2,
-    score: 85,
-    viability: 'good',
     created_at: '2024-01-20T09:15:00Z',
   },
-  {
+  'va-004': {
     id: 'va-004',
     apn: 'VA-SPOT-004-2024',
     state: 'VA',
@@ -70,11 +64,9 @@ const demoParcels = [
     solar_permission: 'Special Exception',
     owner_name: 'Colonial Land Trust',
     nearest_substation_mi: 1.8,
-    score: 68,
-    viability: 'moderate',
     created_at: '2024-01-25T11:45:00Z',
   },
-  {
+  'va-005': {
     id: 'va-005',
     apn: 'VA-ORAN-005-2024',
     state: 'VA',
@@ -88,38 +80,24 @@ const demoParcels = [
     solar_permission: 'By-right',
     owner_name: 'Rapidan Energy Partners',
     nearest_substation_mi: 5.5,
-    score: 91,
-    viability: 'excellent',
     created_at: '2024-02-01T16:00:00Z',
   },
-];
+};
 
-export async function GET() {
-  return NextResponse.json(demoParcels);
-}
+export async function GET(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params;
 
-export async function POST(request: Request) {
-  const body = await request.json();
+  const parcel = demoParcels[id];
 
-  // Create a new parcel with demo data
-  const newParcel = {
-    id: `parcel-${Date.now()}`,
-    apn: `VA-NEW-${Date.now().toString().slice(-6)}`,
-    state: body.state || 'VA',
-    county: body.county || 'Unknown',
-    municipality: body.municipality || '',
-    address: body.address || '',
-    acreage: body.acreage || 0,
-    latitude: body.latitude || 38.5,
-    longitude: body.longitude || -77.5,
-    zoning_type: body.zoning_type || 'Agricultural',
-    solar_permission: body.solar_permission || 'Unknown',
-    owner_name: body.owner_name || '',
-    nearest_substation_mi: body.nearest_substation_mi || 5.0,
-    score: Math.floor(Math.random() * 30) + 60,
-    viability: 'moderate',
-    created_at: new Date().toISOString(),
-  };
+  if (!parcel) {
+    return NextResponse.json(
+      { detail: 'Parcel not found' },
+      { status: 404 }
+    );
+  }
 
-  return NextResponse.json(newParcel, { status: 201 });
+  return NextResponse.json(parcel);
 }

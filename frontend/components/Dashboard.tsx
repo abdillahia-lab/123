@@ -11,8 +11,17 @@ import {
   CheckCircle,
   Clock,
   Plus,
+  ChevronRight,
+  Play,
 } from 'lucide-react';
 import { ScoreRing } from './ScoreRing';
+
+interface ExtendedParcel extends Parcel {
+  score?: number;
+  viability?: string;
+  latitude?: number;
+  longitude?: number;
+}
 
 interface DashboardProps {
   onSelectParcel: (id: string) => void;
@@ -29,6 +38,14 @@ export function Dashboard({ onSelectParcel }: DashboardProps) {
   const { data: projects } = useQuery({
     queryKey: ['projects'],
     queryFn: () => api.listProjects(),
+  });
+
+  const { data: parcels } = useQuery<ExtendedParcel[]>({
+    queryKey: ['parcels'],
+    queryFn: async () => {
+      const res = await fetch('/api/parcels');
+      return res.json();
+    },
   });
 
   return (
@@ -58,7 +75,7 @@ export function Dashboard({ onSelectParcel }: DashboardProps) {
         />
         <StatCard
           title="High-Value Sites"
-          value={0}
+          value={stats?.high_value_sites || 0}
           icon={CheckCircle}
           color="bg-green-500"
           trend="+3"
@@ -118,11 +135,40 @@ export function Dashboard({ onSelectParcel }: DashboardProps) {
         </div>
       </div>
 
+      {/* Virginia Parcels */}
+      <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+            Virginia Parcels
+          </h2>
+          <span className="text-sm text-gray-500 dark:text-gray-400">
+            {parcels?.length || 0} sites available
+          </span>
+        </div>
+
+        {parcels && parcels.length > 0 ? (
+          <div className="space-y-3">
+            {parcels.map((parcel) => (
+              <ParcelRow
+                key={parcel.id}
+                parcel={parcel}
+                onSelect={() => onSelectParcel(parcel.id)}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+            <MapPin className="w-12 h-12 mx-auto mb-3 opacity-50" />
+            <p>No parcels available</p>
+          </div>
+        )}
+      </div>
+
       {/* Recent projects */}
       <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-            Recent Projects
+            Active Projects
           </h2>
           <button className="text-sm text-terra-600 hover:text-terra-700 font-medium">
             View All
@@ -178,6 +224,44 @@ function StatCard({
           {value.toLocaleString()}
         </div>
         <div className="text-sm text-gray-500 dark:text-gray-400">{title}</div>
+      </div>
+    </div>
+  );
+}
+
+function ParcelRow({ parcel, onSelect }: { parcel: ExtendedParcel; onSelect: () => void }) {
+  const getScoreColor = (score?: number) => {
+    if (!score) return 'bg-gray-100 text-gray-700';
+    if (score >= 80) return 'bg-green-100 text-green-700';
+    if (score >= 60) return 'bg-yellow-100 text-yellow-700';
+    return 'bg-orange-100 text-orange-700';
+  };
+
+  return (
+    <div
+      onClick={onSelect}
+      className="flex items-center justify-between p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer group"
+    >
+      <div className="flex items-center gap-3">
+        <div className="w-10 h-10 bg-terra-100 dark:bg-terra-900/30 rounded-lg flex items-center justify-center">
+          <MapPin className="w-5 h-5 text-terra-600" />
+        </div>
+        <div>
+          <div className="font-medium text-gray-900 dark:text-white">
+            {parcel.county}, {parcel.state}
+          </div>
+          <div className="text-sm text-gray-500 dark:text-gray-400">
+            {parcel.acreage} acres • {parcel.zoning_type} • {parcel.solar_permission}
+          </div>
+        </div>
+      </div>
+      <div className="flex items-center gap-2">
+        {parcel.score && (
+          <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${getScoreColor(parcel.score)}`}>
+            {parcel.score}
+          </span>
+        )}
+        <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-terra-600 transition-colors" />
       </div>
     </div>
   );

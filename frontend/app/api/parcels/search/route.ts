@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-// Demo parcels data for Virginia
+// Demo parcels data
 const demoParcels = [
   {
     id: 'va-001',
@@ -10,14 +10,9 @@ const demoParcels = [
     municipality: 'Leesburg',
     address: '15200 James Monroe Hwy',
     acreage: 200,
-    latitude: 39.1076,
-    longitude: -77.5636,
     zoning_type: 'Agricultural',
     solar_permission: 'By-right',
     owner_name: 'Blue Ridge Farms LLC',
-    nearest_substation_mi: 2.3,
-    score: 78,
-    viability: 'good',
     created_at: '2024-01-10T10:00:00Z',
   },
   {
@@ -28,14 +23,9 @@ const demoParcels = [
     municipality: 'Warrenton',
     address: '8500 Lee Highway',
     acreage: 350,
-    latitude: 38.7135,
-    longitude: -77.7964,
     zoning_type: 'Rural Agricultural',
     solar_permission: 'Conditional Use',
     owner_name: 'Piedmont Holdings',
-    nearest_substation_mi: 4.1,
-    score: 72,
-    viability: 'moderate',
     created_at: '2024-01-15T14:30:00Z',
   },
   {
@@ -46,14 +36,9 @@ const demoParcels = [
     municipality: 'Culpeper',
     address: '12000 Rixeyville Road',
     acreage: 180,
-    latitude: 38.4729,
-    longitude: -77.9967,
     zoning_type: 'Agricultural',
     solar_permission: 'By-right',
     owner_name: 'Mountain View Estates',
-    nearest_substation_mi: 3.2,
-    score: 85,
-    viability: 'good',
     created_at: '2024-01-20T09:15:00Z',
   },
   {
@@ -64,14 +49,9 @@ const demoParcels = [
     municipality: 'Fredericksburg',
     address: '5500 Courthouse Road',
     acreage: 275,
-    latitude: 38.2009,
-    longitude: -77.5164,
     zoning_type: 'Agricultural-2',
     solar_permission: 'Special Exception',
     owner_name: 'Colonial Land Trust',
-    nearest_substation_mi: 1.8,
-    score: 68,
-    viability: 'moderate',
     created_at: '2024-01-25T11:45:00Z',
   },
   {
@@ -82,44 +62,60 @@ const demoParcels = [
     municipality: 'Orange',
     address: '3200 Constitution Highway',
     acreage: 420,
-    latitude: 38.2454,
-    longitude: -78.1108,
     zoning_type: 'Rural Agricultural',
     solar_permission: 'By-right',
     owner_name: 'Rapidan Energy Partners',
-    nearest_substation_mi: 5.5,
-    score: 91,
-    viability: 'excellent',
     created_at: '2024-02-01T16:00:00Z',
   },
 ];
 
-export async function GET() {
-  return NextResponse.json(demoParcels);
-}
-
 export async function POST(request: Request) {
+  const startTime = Date.now();
   const body = await request.json();
 
-  // Create a new parcel with demo data
-  const newParcel = {
-    id: `parcel-${Date.now()}`,
-    apn: `VA-NEW-${Date.now().toString().slice(-6)}`,
-    state: body.state || 'VA',
-    county: body.county || 'Unknown',
-    municipality: body.municipality || '',
-    address: body.address || '',
-    acreage: body.acreage || 0,
-    latitude: body.latitude || 38.5,
-    longitude: body.longitude || -77.5,
-    zoning_type: body.zoning_type || 'Agricultural',
-    solar_permission: body.solar_permission || 'Unknown',
-    owner_name: body.owner_name || '',
-    nearest_substation_mi: body.nearest_substation_mi || 5.0,
-    score: Math.floor(Math.random() * 30) + 60,
-    viability: 'moderate',
-    created_at: new Date().toISOString(),
-  };
+  let results = [...demoParcels];
 
-  return NextResponse.json(newParcel, { status: 201 });
+  // Filter by states
+  if (body.states && body.states.length > 0) {
+    results = results.filter(p => body.states.includes(p.state));
+  }
+
+  // Filter by counties
+  if (body.counties && body.counties.length > 0) {
+    results = results.filter(p =>
+      body.counties.some((c: string) => p.county.toLowerCase().includes(c.toLowerCase()))
+    );
+  }
+
+  // Filter by acreage
+  if (body.min_acreage) {
+    results = results.filter(p => p.acreage >= body.min_acreage);
+  }
+  if (body.max_acreage) {
+    results = results.filter(p => p.acreage <= body.max_acreage);
+  }
+
+  // Text search in query
+  if (body.query) {
+    const q = body.query.toLowerCase();
+    results = results.filter(p =>
+      p.county.toLowerCase().includes(q) ||
+      p.municipality.toLowerCase().includes(q) ||
+      p.owner_name.toLowerCase().includes(q) ||
+      p.state.toLowerCase().includes(q)
+    );
+  }
+
+  // Apply limit and offset
+  const offset = body.offset || 0;
+  const limit = body.limit || 50;
+  const paginatedResults = results.slice(offset, offset + limit);
+
+  return NextResponse.json({
+    total_matches: results.length,
+    returned_count: paginatedResults.length,
+    parcels: paginatedResults,
+    interpreted_query: body.query || 'All Virginia parcels',
+    search_duration_ms: Date.now() - startTime,
+  });
 }

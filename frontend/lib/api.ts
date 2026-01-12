@@ -111,8 +111,9 @@ class TerraJinkiClient {
       parcels_count: number;
       projects_count: number;
       analyses_count: number;
+      high_value_sites?: number;
       config: Record<string, unknown>;
-    }>('/stats');
+    }>('/api/stats');
   }
 
   // Parcels
@@ -136,7 +137,7 @@ class TerraJinkiClient {
   }
 
   async getParcel(id: string): Promise<Parcel> {
-    return this.fetch<Parcel>(`/parcels/${id}`);
+    return this.fetch<Parcel>(`/api/parcels/${id}`);
   }
 
   async searchParcels(query: {
@@ -148,14 +149,14 @@ class TerraJinkiClient {
     limit?: number;
     offset?: number;
   }): Promise<SearchResult> {
-    return this.fetch<SearchResult>('/parcels/search', {
+    return this.fetch<SearchResult>('/api/parcels/search', {
       method: 'POST',
       body: JSON.stringify(query),
     });
   }
 
   async naturalLanguageSearch(query: string): Promise<SearchResult> {
-    return this.fetch<SearchResult>(`/parcels/search/natural?query=${encodeURIComponent(query)}`);
+    return this.fetch<SearchResult>(`/api/parcels/search/natural?query=${encodeURIComponent(query)}`);
   }
 
   // Analysis
@@ -179,7 +180,7 @@ class TerraJinkiClient {
     key_factors: string[];
     recommendation: string;
   }> {
-    return this.fetch('/analyze/quick', {
+    return this.fetch('/api/analyze/quick', {
       method: 'POST',
       body: JSON.stringify({ parcel_id: parcelId }),
     });
@@ -204,7 +205,7 @@ class TerraJinkiClient {
   }
 
   async listProjects(stage?: string): Promise<Project[]> {
-    const url = stage ? `/projects?stage=${stage}` : '/projects';
+    const url = stage ? `/api/projects?stage=${stage}` : '/api/projects';
     return this.fetch<Project[]>(url);
   }
 
