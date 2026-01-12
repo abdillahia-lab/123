@@ -85,3 +85,4 @@ temp/
 # Coverage
 .coverage
 htmlcov/
+node_modules/
