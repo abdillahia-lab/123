@@ -9,6 +9,7 @@ import { AnalysisPanel } from '@/components/AnalysisPanel';
 import { AISiteScout } from '@/components/AISiteScout';
 import { MarketDashboard } from '@/components/MarketDashboard';
 import { FinancialModeler } from '@/components/FinancialModeler';
+import CommandCenter from '@/components/CommandCenter';
 import {
   LayoutDashboard,
   Map,
@@ -21,13 +22,14 @@ import {
   Zap,
   Menu,
   X,
+  Radio,
 } from 'lucide-react';
 
-type ViewType = 'dashboard' | 'scout' | 'map' | 'market' | 'financial' | 'pipeline';
+type ViewType = 'command' | 'dashboard' | 'scout' | 'map' | 'market' | 'financial' | 'pipeline';
 
 export default function Home() {
   const [selectedParcelId, setSelectedParcelId] = useState<string | null>(null);
-  const [view, setView] = useState<ViewType>('scout');
+  const [view, setView] = useState<ViewType>('command');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   const { data: stats } = useQuery({
@@ -36,10 +38,11 @@ export default function Home() {
   });
 
   const navigation = [
+    { id: 'command' as const, name: 'Command Center', icon: Radio, badge: 'LIVE' },
     { id: 'scout' as const, name: 'AI Site Scout', icon: Sparkles, badge: 'AI' },
     { id: 'dashboard' as const, name: 'Dashboard', icon: LayoutDashboard },
     { id: 'map' as const, name: 'Site Explorer', icon: Map },
-    { id: 'market' as const, name: 'Market Intelligence', icon: TrendingUp, badge: 'LIVE' },
+    { id: 'market' as const, name: 'Market Intelligence', icon: TrendingUp },
     { id: 'financial' as const, name: 'Financial Modeler', icon: Calculator },
     { id: 'pipeline' as const, name: 'Project Pipeline', icon: FolderKanban },
   ];
@@ -145,6 +148,7 @@ export default function Home() {
               {navigation.find(n => n.id === view)?.name}
             </h1>
             <p className="text-sm text-gray-500 dark:text-gray-400">
+              {view === 'command' && 'Real-time market intelligence and new opportunities'}
               {view === 'scout' && 'Find optimal sites with natural language search'}
               {view === 'dashboard' && 'Overview of your renewable energy portfolio'}
               {view === 'map' && 'Interactive map with all 50 US states'}
@@ -174,6 +178,8 @@ export default function Home() {
 
         {/* View Content */}
         <div className="flex-1 overflow-hidden flex">
+          {view === 'command' && <CommandCenter />}
+
           {view === 'scout' && (
             <>
               <div className="flex-1">
