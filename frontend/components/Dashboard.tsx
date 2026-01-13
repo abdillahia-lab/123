@@ -1,8 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { api, type Parcel, type Analysis } from '@/lib/api';
 import {
   TrendingUp,
   MapPin,
@@ -13,187 +12,291 @@ import {
   Plus,
   ChevronRight,
   Play,
+  Sun,
+  Wind,
+  DollarSign,
+  BarChart3,
+  Globe,
+  Target,
 } from 'lucide-react';
-import { ScoreRing } from './ScoreRing';
-
-interface ExtendedParcel extends Parcel {
-  score?: number;
-  viability?: string;
-  latitude?: number;
-  longitude?: number;
-}
+import { US_PARCELS, getTotalStatistics, getStateStatistics } from '@/lib/us-parcels-data';
 
 interface DashboardProps {
   onSelectParcel: (id: string) => void;
 }
 
 export function Dashboard({ onSelectParcel }: DashboardProps) {
-  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [stats, setStats] = useState<ReturnType<typeof getTotalStatistics> | null>(null);
+  const [stateStats, setStateStats] = useState<ReturnType<typeof getStateStatistics> | null>(null);
+  const [topParcels, setTopParcels] = useState<typeof US_PARCELS>([]);
 
-  const { data: stats } = useQuery({
-    queryKey: ['stats'],
-    queryFn: () => api.stats(),
-  });
+  useEffect(() => {
+    setStats(getTotalStatistics());
+    setStateStats(getStateStatistics());
+    // Get top 10 parcels by score
+    const sorted = [...US_PARCELS].sort((a, b) => b.overall_score - a.overall_score);
+    setTopParcels(sorted.slice(0, 10));
+  }, []);
 
-  const { data: projects } = useQuery({
-    queryKey: ['projects'],
-    queryFn: () => api.listProjects(),
-  });
+  const getViabilityColor = (viability: string) => {
+    switch (viability) {
+      case 'excellent': return 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400';
+      case 'good': return 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400';
+      case 'moderate': return 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400';
+      default: return 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400';
+    }
+  };
 
-  const { data: parcels } = useQuery<ExtendedParcel[]>({
-    queryKey: ['parcels'],
-    queryFn: async () => {
-      const res = await fetch('/api/parcels');
-      return res.json();
-    },
-  });
+  const getScoreColor = (score: number) => {
+    if (score >= 85) return 'bg-green-500';
+    if (score >= 70) return 'bg-blue-500';
+    if (score >= 55) return 'bg-yellow-500';
+    return 'bg-orange-500';
+  };
+
+  // Get top states by parcel count
+  const topStates = stateStats
+    ? Object.entries(stateStats)
+        .sort((a, b) => b[1].count - a[1].count)
+        .slice(0, 8)
+    : [];
 
   return (
-    <div className="h-full overflow-y-auto p-6 space-y-6">
-      {/* Stats cards */}
+    <div className="h-full overflow-y-auto p-6 space-y-6 bg-gray-50 dark:bg-gray-900">
+      {/* Hero Stats */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           title="Total Parcels"
-          value={stats?.parcels_count || 0}
+          value={stats?.parcelCount.toLocaleString() || '2,000+'}
+          subtitle="Across all 50 states"
           icon={MapPin}
           color="bg-terra-500"
-          trend="+12%"
+          trend="+12% vs last month"
         />
         <StatCard
-          title="Active Projects"
-          value={stats?.projects_count || 0}
-          icon={Zap}
-          color="bg-jinki-500"
-          trend="+5%"
-        />
-        <StatCard
-          title="Analyses Run"
-          value={stats?.analyses_count || 0}
-          icon={TrendingUp}
+          title="Total Acreage"
+          value={stats ? `${(stats.totalAcreage / 1000).toFixed(0)}K` : '1M+'}
+          subtitle="acres available"
+          icon={Globe}
           color="bg-blue-500"
-          trend="+28%"
+          trend="+8% vs last month"
         />
         <StatCard
-          title="High-Value Sites"
-          value={stats?.high_value_sites || 0}
-          icon={CheckCircle}
+          title="Solar Capacity"
+          value={stats ? `${(stats.totalSolarCapacity / 1000).toFixed(1)}GW` : '200GW'}
+          subtitle="potential"
+          icon={Sun}
+          color="bg-yellow-500"
+          trend="+15% vs last month"
+        />
+        <StatCard
+          title="Excellent Sites"
+          value={stats?.excellentCount.toLocaleString() || '500+'}
+          subtitle="score 85+"
+          icon={Target}
           color="bg-green-500"
-          trend="+3"
+          trend="+24 new this week"
         />
       </div>
 
-      {/* Quick actions */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-          Quick Actions
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <button
-            onClick={() => setShowCreateModal(true)}
-            className="flex items-center gap-3 p-4 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-terra-500 hover:bg-terra-50 dark:hover:bg-terra-900/20 transition-colors"
-          >
-            <div className="p-2 bg-terra-100 dark:bg-terra-900/30 rounded-lg">
-              <Plus className="w-5 h-5 text-terra-600" />
-            </div>
-            <div className="text-left">
-              <div className="font-medium text-gray-900 dark:text-white">
-                Add Parcel
-              </div>
-              <div className="text-sm text-gray-500 dark:text-gray-400">
-                Register a new site
-              </div>
-            </div>
-          </button>
-
-          <button className="flex items-center gap-3 p-4 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-jinki-500 hover:bg-jinki-50 dark:hover:bg-jinki-900/20 transition-colors">
-            <div className="p-2 bg-jinki-100 dark:bg-jinki-900/30 rounded-lg">
-              <Zap className="w-5 h-5 text-jinki-600" />
-            </div>
-            <div className="text-left">
-              <div className="font-medium text-gray-900 dark:text-white">
-                Quick Analysis
-              </div>
-              <div className="text-sm text-gray-500 dark:text-gray-400">
-                Score a parcel instantly
-              </div>
-            </div>
-          </button>
-
-          <button className="flex items-center gap-3 p-4 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors">
-            <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
-              <MapPin className="w-5 h-5 text-blue-600" />
-            </div>
-            <div className="text-left">
-              <div className="font-medium text-gray-900 dark:text-white">
-                Explore Map
-              </div>
-              <div className="text-sm text-gray-500 dark:text-gray-400">
-                Find sites visually
-              </div>
-            </div>
-          </button>
-        </div>
+      {/* Secondary Stats */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <MiniStatCard
+          label="Average Score"
+          value={stats?.avgScore?.toString() || '72'}
+          icon={BarChart3}
+        />
+        <MiniStatCard
+          label="Good+ Sites"
+          value={stats ? (stats.excellentCount + stats.goodCount).toLocaleString() : '1,200'}
+          icon={CheckCircle}
+        />
+        <MiniStatCard
+          label="Wind Capacity"
+          value={stats ? `${(stats.totalWindCapacity / 1000).toFixed(1)}GW` : '40GW'}
+          icon={Wind}
+        />
+        <MiniStatCard
+          label="States Covered"
+          value={stats?.stateCount?.toString() || '50'}
+          icon={Globe}
+        />
       </div>
 
-      {/* Virginia Parcels */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-            Virginia Parcels
-          </h2>
-          <span className="text-sm text-gray-500 dark:text-gray-400">
-            {parcels?.length || 0} sites available
-          </span>
-        </div>
+      {/* Main Content Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Top Parcels */}
+        <div className="lg:col-span-2 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+          <div className="px-5 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                Top Scored Parcels
+              </h2>
+              <p className="text-sm text-gray-500">Highest potential development sites nationwide</p>
+            </div>
+            <button className="text-sm text-terra-600 hover:text-terra-700 font-medium">
+              View All
+            </button>
+          </div>
 
-        {parcels && parcels.length > 0 ? (
-          <div className="space-y-3">
-            {parcels.map((parcel) => (
-              <ParcelRow
+          <div className="divide-y divide-gray-100 dark:divide-gray-700">
+            {topParcels.map((parcel, idx) => (
+              <div
                 key={parcel.id}
-                parcel={parcel}
-                onSelect={() => onSelectParcel(parcel.id)}
-              />
+                onClick={() => onSelectParcel(parcel.id)}
+                className="px-5 py-4 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer transition-colors group"
+              >
+                <div className="flex items-center gap-4">
+                  <div className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-sm font-bold text-gray-600 dark:text-gray-300">
+                    #{idx + 1}
+                  </div>
+                  <div>
+                    <div className="font-medium text-gray-900 dark:text-white">
+                      {parcel.county}, {parcel.state}
+                    </div>
+                    <div className="text-sm text-gray-500 flex items-center gap-3">
+                      <span>{parcel.acreage.toLocaleString()} acres</span>
+                      <span>•</span>
+                      <span>{parcel.solar_permission}</span>
+                      <span>•</span>
+                      <span>{parcel.nearest_substation_mi} mi to grid</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className={`px-2 py-0.5 rounded-full text-xs font-medium capitalize ${getViabilityColor(parcel.viability)}`}>
+                    {parcel.viability}
+                  </span>
+                  <div className={`w-10 h-10 rounded-lg ${getScoreColor(parcel.overall_score)} flex items-center justify-center`}>
+                    <span className="text-white font-bold">{parcel.overall_score}</span>
+                  </div>
+                  <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-terra-600 transition-colors" />
+                </div>
+              </div>
             ))}
           </div>
-        ) : (
-          <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-            <MapPin className="w-12 h-12 mx-auto mb-3 opacity-50" />
-            <p>No parcels available</p>
-          </div>
-        )}
-      </div>
-
-      {/* Recent projects */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-            Active Projects
-          </h2>
-          <button className="text-sm text-terra-600 hover:text-terra-700 font-medium">
-            View All
-          </button>
         </div>
 
-        {projects && projects.length > 0 ? (
-          <div className="space-y-3">
-            {projects.slice(0, 5).map((project) => (
-              <ProjectRow key={project.id} project={project} />
+        {/* State Leaderboard */}
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+          <div className="px-5 py-4 border-b border-gray-200 dark:border-gray-700">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+              Top States
+            </h2>
+            <p className="text-sm text-gray-500">By number of quality sites</p>
+          </div>
+
+          <div className="p-4 space-y-3">
+            {topStates.map(([stateCode, data], idx) => (
+              <div key={stateCode} className="flex items-center gap-3">
+                <div className={`w-6 h-6 rounded flex items-center justify-center text-xs font-bold ${
+                  idx === 0 ? 'bg-yellow-400 text-yellow-900' :
+                  idx === 1 ? 'bg-gray-300 text-gray-700' :
+                  idx === 2 ? 'bg-amber-600 text-white' :
+                  'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
+                }`}>
+                  {idx + 1}
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium text-gray-900 dark:text-white">{stateCode}</span>
+                    <span className="text-sm text-gray-500">{data.count} parcels</span>
+                  </div>
+                  <div className="mt-1 h-2 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-terra-500 rounded-full"
+                      style={{ width: `${(data.count / topStates[0][1].count) * 100}%` }}
+                    />
+                  </div>
+                  <div className="flex justify-between text-xs text-gray-500 mt-1">
+                    <span>Avg Score: {data.avgScore}</span>
+                    <span>{(data.totalCapacity / 1000).toFixed(1)}GW capacity</span>
+                  </div>
+                </div>
+              </div>
             ))}
           </div>
-        ) : (
-          <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-            <FolderIcon className="w-12 h-12 mx-auto mb-3 opacity-50" />
-            <p>No projects yet</p>
-            <p className="text-sm">Create your first project to get started</p>
-          </div>
-        )}
+        </div>
       </div>
 
-      {/* Create Parcel Modal */}
-      {showCreateModal && (
-        <CreateParcelModal onClose={() => setShowCreateModal(false)} />
-      )}
+      {/* Quick Stats Row */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {/* Viability Breakdown */}
+        <div className="bg-white dark:bg-gray-800 rounded-xl p-5 shadow-sm border border-gray-200 dark:border-gray-700">
+          <h3 className="font-semibold text-gray-900 dark:text-white mb-4">Viability Breakdown</h3>
+          <div className="space-y-3">
+            {[
+              { label: 'Excellent', count: stats?.excellentCount || 0, color: 'bg-green-500' },
+              { label: 'Good', count: stats?.goodCount || 0, color: 'bg-blue-500' },
+              { label: 'Moderate', count: stats?.moderateCount || 0, color: 'bg-yellow-500' },
+            ].map((item) => (
+              <div key={item.label} className="flex items-center gap-3">
+                <div className={`w-3 h-3 rounded-full ${item.color}`} />
+                <span className="flex-1 text-sm text-gray-600 dark:text-gray-400">{item.label}</span>
+                <span className="font-semibold text-gray-900 dark:text-white">{item.count.toLocaleString()}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Resource Mix */}
+        <div className="bg-white dark:bg-gray-800 rounded-xl p-5 shadow-sm border border-gray-200 dark:border-gray-700">
+          <h3 className="font-semibold text-gray-900 dark:text-white mb-4">Resource Potential</h3>
+          <div className="space-y-4">
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-sm text-gray-600 dark:text-gray-400 flex items-center gap-2">
+                  <Sun className="w-4 h-4 text-yellow-500" /> Solar
+                </span>
+                <span className="font-semibold text-gray-900 dark:text-white">
+                  {stats ? `${(stats.totalSolarCapacity / 1000).toFixed(1)}GW` : '200GW'}
+                </span>
+              </div>
+              <div className="h-2 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+                <div className="h-full bg-yellow-500 rounded-full" style={{ width: '85%' }} />
+              </div>
+            </div>
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-sm text-gray-600 dark:text-gray-400 flex items-center gap-2">
+                  <Wind className="w-4 h-4 text-blue-500" /> Wind
+                </span>
+                <span className="font-semibold text-gray-900 dark:text-white">
+                  {stats ? `${(stats.totalWindCapacity / 1000).toFixed(1)}GW` : '40GW'}
+                </span>
+              </div>
+              <div className="h-2 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+                <div className="h-full bg-blue-500 rounded-full" style={{ width: '35%' }} />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Quick Actions */}
+        <div className="bg-white dark:bg-gray-800 rounded-xl p-5 shadow-sm border border-gray-200 dark:border-gray-700">
+          <h3 className="font-semibold text-gray-900 dark:text-white mb-4">Quick Actions</h3>
+          <div className="space-y-2">
+            <button className="w-full flex items-center gap-3 p-3 rounded-lg border border-gray-200 dark:border-gray-600 hover:border-terra-500 hover:bg-terra-50 dark:hover:bg-terra-900/20 transition-colors text-left">
+              <div className="p-2 bg-terra-100 dark:bg-terra-900/30 rounded-lg">
+                <Target className="w-4 h-4 text-terra-600" />
+              </div>
+              <div>
+                <div className="font-medium text-gray-900 dark:text-white text-sm">AI Site Scout</div>
+                <div className="text-xs text-gray-500">Find sites with natural language</div>
+              </div>
+            </button>
+            <button className="w-full flex items-center gap-3 p-3 rounded-lg border border-gray-200 dark:border-gray-600 hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors text-left">
+              <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+                <BarChart3 className="w-4 h-4 text-blue-600" />
+              </div>
+              <div>
+                <div className="font-medium text-gray-900 dark:text-white text-sm">Financial Model</div>
+                <div className="text-xs text-gray-500">Calculate IRR, NPV, LCOE</div>
+              </div>
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -201,249 +304,51 @@ export function Dashboard({ onSelectParcel }: DashboardProps) {
 function StatCard({
   title,
   value,
+  subtitle,
   icon: Icon,
   color,
   trend,
 }: {
   title: string;
-  value: number;
+  value: string;
+  subtitle: string;
   icon: React.ComponentType<{ className?: string }>;
   color: string;
   trend: string;
 }) {
   return (
     <div className="bg-white dark:bg-gray-800 rounded-xl p-5 shadow-sm border border-gray-200 dark:border-gray-700">
-      <div className="flex items-center justify-between">
-        <div className={`p-2 ${color} rounded-lg`}>
+      <div className="flex items-center justify-between mb-4">
+        <div className={`p-2.5 ${color} rounded-lg`}>
           <Icon className="w-5 h-5 text-white" />
         </div>
-        <span className="text-sm text-green-600 font-medium">{trend}</span>
+        <span className="text-xs text-green-600 font-medium">{trend}</span>
       </div>
-      <div className="mt-4">
-        <div className="text-2xl font-bold text-gray-900 dark:text-white">
-          {value.toLocaleString()}
-        </div>
-        <div className="text-sm text-gray-500 dark:text-gray-400">{title}</div>
-      </div>
-    </div>
-  );
-}
-
-function ParcelRow({ parcel, onSelect }: { parcel: ExtendedParcel; onSelect: () => void }) {
-  const getScoreColor = (score?: number) => {
-    if (!score) return 'bg-gray-100 text-gray-700';
-    if (score >= 80) return 'bg-green-100 text-green-700';
-    if (score >= 60) return 'bg-yellow-100 text-yellow-700';
-    return 'bg-orange-100 text-orange-700';
-  };
-
-  return (
-    <div
-      onClick={onSelect}
-      className="flex items-center justify-between p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer group"
-    >
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 bg-terra-100 dark:bg-terra-900/30 rounded-lg flex items-center justify-center">
-          <MapPin className="w-5 h-5 text-terra-600" />
-        </div>
-        <div>
-          <div className="font-medium text-gray-900 dark:text-white">
-            {parcel.county}, {parcel.state}
-          </div>
-          <div className="text-sm text-gray-500 dark:text-gray-400">
-            {parcel.acreage} acres • {parcel.zoning_type} • {parcel.solar_permission}
-          </div>
-        </div>
-      </div>
-      <div className="flex items-center gap-2">
-        {parcel.score && (
-          <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${getScoreColor(parcel.score)}`}>
-            {parcel.score}
-          </span>
-        )}
-        <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-terra-600 transition-colors" />
+      <div>
+        <div className="text-3xl font-bold text-gray-900 dark:text-white">{value}</div>
+        <div className="text-sm text-gray-500 dark:text-gray-400">{subtitle}</div>
+        <div className="text-xs text-gray-400 mt-1">{title}</div>
       </div>
     </div>
   );
 }
 
-function ProjectRow({ project }: { project: any }) {
-  const stageColors: Record<string, string> = {
-    prospecting: 'bg-gray-100 text-gray-700',
-    due_diligence: 'bg-yellow-100 text-yellow-700',
-    site_control: 'bg-blue-100 text-blue-700',
-    permitting: 'bg-purple-100 text-purple-700',
-    construction: 'bg-green-100 text-green-700',
-  };
-
+function MiniStatCard({
+  label,
+  value,
+  icon: Icon,
+}: {
+  label: string;
+  value: string;
+  icon: React.ComponentType<{ className?: string }>;
+}) {
   return (
-    <div className="flex items-center justify-between p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 bg-gradient-to-br from-terra-500 to-jinki-500 rounded-lg flex items-center justify-center">
-          <Zap className="w-5 h-5 text-white" />
-        </div>
-        <div>
-          <div className="font-medium text-gray-900 dark:text-white">
-            {project.name}
-          </div>
-          <div className="text-sm text-gray-500 dark:text-gray-400">
-            {project.total_acreage} acres • {project.capacity_mw} MW
-          </div>
-        </div>
+    <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm border border-gray-200 dark:border-gray-700">
+      <div className="flex items-center gap-2 mb-1">
+        <Icon className="w-4 h-4 text-gray-400" />
+        <span className="text-xs text-gray-500">{label}</span>
       </div>
-      <span
-        className={`px-2.5 py-1 rounded-full text-xs font-medium capitalize ${
-          stageColors[project.stage] || stageColors.prospecting
-        }`}
-      >
-        {project.stage.replace('_', ' ')}
-      </span>
-    </div>
-  );
-}
-
-function FolderIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={1.5}
-        d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"
-      />
-    </svg>
-  );
-}
-
-function CreateParcelModal({ onClose }: { onClose: () => void }) {
-  const [formData, setFormData] = useState({
-    state: '',
-    county: '',
-    acreage: '',
-    municipality: '',
-    owner_name: '',
-  });
-
-  const createMutation = useMutation({
-    mutationFn: (data: any) => api.createParcel(data),
-    onSuccess: () => {
-      onClose();
-    },
-  });
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    createMutation.mutate({
-      ...formData,
-      acreage: parseFloat(formData.acreage),
-    });
-  };
-
-  return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-white dark:bg-gray-800 rounded-xl p-6 w-full max-w-md shadow-xl">
-        <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
-          Add New Parcel
-        </h2>
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                State
-              </label>
-              <input
-                type="text"
-                value={formData.state}
-                onChange={(e) =>
-                  setFormData({ ...formData, state: e.target.value })
-                }
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                placeholder="TX"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                County
-              </label>
-              <input
-                type="text"
-                value={formData.county}
-                onChange={(e) =>
-                  setFormData({ ...formData, county: e.target.value })
-                }
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                placeholder="Harris"
-                required
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Acreage
-            </label>
-            <input
-              type="number"
-              value={formData.acreage}
-              onChange={(e) =>
-                setFormData({ ...formData, acreage: e.target.value })
-              }
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-              placeholder="50"
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Municipality (optional)
-            </label>
-            <input
-              type="text"
-              value={formData.municipality}
-              onChange={(e) =>
-                setFormData({ ...formData, municipality: e.target.value })
-              }
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-              placeholder="Houston"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Owner Name (optional)
-            </label>
-            <input
-              type="text"
-              value={formData.owner_name}
-              onChange={(e) =>
-                setFormData({ ...formData, owner_name: e.target.value })
-              }
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-              placeholder="John Smith"
-            />
-          </div>
-
-          <div className="flex gap-3 pt-4">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={createMutation.isPending}
-              className="flex-1 px-4 py-2 bg-terra-600 text-white rounded-lg hover:bg-terra-700 disabled:opacity-50"
-            >
-              {createMutation.isPending ? 'Creating...' : 'Create Parcel'}
-            </button>
-          </div>
-        </form>
-      </div>
+      <div className="text-xl font-bold text-gray-900 dark:text-white">{value}</div>
     </div>
   );
 }
